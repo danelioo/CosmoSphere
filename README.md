@@ -11,10 +11,10 @@ Cosphere isn't meant to compete with major commercial synthesizers. It's a perso
 ## Screenshots
 
 ### Default Dark Theme
-![Cosphere - Default Dark Theme](screenshots/cosphere-dark.png)
+![Cosphere - Default Dark Theme](cosphere-dark.png)
 
 ### Light Theme
-![Cosphere - Light Theme](screenshots/cosphere-light.png)
+![Cosphere - Light Theme](cosphere-light.png)
 
 ## Download
 
