@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Danilo Pereira
 #pragma once
 #include "Common.h"
 #include "Synth.h"
@@ -50,6 +52,7 @@ public:
 
     int edW = kBaseW, edH = kBaseH;
     int theme = 0;
+    int uiScalePercent = 100;
 
 private:
     cosphere::SynthParams readParams() const;

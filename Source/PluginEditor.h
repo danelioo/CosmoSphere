@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Danilo Pereira
 #pragma once
 #include "PluginProcessor.h"
 
@@ -7,7 +9,7 @@
 
 namespace ui
 {
-constexpr const char* kVersion = "1.1.0";
+constexpr const char* kVersion = "1.0.0";
 
 // ---------------------------------------------------------------- Temas
 struct Theme
@@ -236,7 +238,12 @@ public:
         : label (labelText)
     {
         if (auto* p = dynamic_cast<juce::AudioParameterChoice*> (apvts.getParameter (paramID)))
-            box.addItemList (p->choices, 1);
+        {
+            if (paramID == "ftp") // Short labels without changing choice indexes or saved presets
+                box.addItemList ({ "LP", "BP", "HP" }, 1);
+            else
+                box.addItemList (p->choices, 1);
+        }
         addAndMakeVisible (box);
         attachment = std::make_unique<juce::AudioProcessorValueTreeState::ComboBoxAttachment> (apvts, paramID, box);
     }
@@ -511,6 +518,56 @@ private:
     float cx = 0, cy = 0, R = 1, cr = 1, sr = 0, ct = 1, st = 0;
 };
 
+// ---------------------------------------------------------------- Preferencias da interface
+class OptionsPanel : public juce::Component
+{
+public:
+    ThemeDots themes;
+    juce::ComboBox scaleBox;
+    juce::TextButton closeBtn { "CLOSE" };
+    std::function<void (int)> onScale;
+    std::function<void()> onClose;
+
+    OptionsPanel()
+    {
+        setInterceptsMouseClicks (true, true);
+        addAndMakeVisible (themes);
+        const int sizes[] = { 70, 80, 90, 100, 110, 125, 140, 160, 180 };
+        for (auto size : sizes)
+            scaleBox.addItem (juce::String (size) + "%", size);
+        scaleBox.onChange = [this] { if (onScale) onScale (scaleBox.getSelectedId()); };
+        addAndMakeVisible (scaleBox);
+        closeBtn.onClick = [this] { if (onClose) onClose(); };
+        addAndMakeVisible (closeBtn);
+    }
+
+    void paint (juce::Graphics& g) override
+    {
+        const auto& t = themeOf (*this);
+        const float s = scaleOf (*this);
+        g.fillAll (juce::Colour (t.bgBot).withAlpha (0.94f));
+        auto card = getLocalBounds().toFloat().withSizeKeepingCentre (460.0f * s, 290.0f * s);
+        g.setColour (juce::Colour (t.panelTop));
+        g.fillRoundedRectangle (card, 12.0f * s);
+        g.setColour (juce::Colour (t.accent));
+        g.drawRoundedRectangle (card, 12.0f * s, 1.5f * s);
+        g.setFont (juce::Font (23.0f * s, juce::Font::bold));
+        g.drawText ("OPTIONS", card.toNearestInt().removeFromTop (juce::roundToInt (58.0f * s)), juce::Justification::centred);
+        g.setColour (juce::Colour (t.text));
+        g.setFont (juce::Font (14.0f * s));
+        g.drawText ("WINDOW SCALE", scaleBox.getBounds().translated (0, -juce::roundToInt (26.0f * s)), juce::Justification::centred);
+    }
+
+    void resized() override
+    {
+        const float s = scaleOf (*this);
+        auto card = getLocalBounds().withSizeKeepingCentre (juce::roundToInt (460.0f * s), juce::roundToInt (290.0f * s));
+        scaleBox.setBounds (card.getCentreX() - juce::roundToInt (90.0f * s), card.getY() + juce::roundToInt (112.0f * s), juce::roundToInt (180.0f * s), juce::roundToInt (30.0f * s));
+        themes.setBounds (card.getX() + juce::roundToInt (55.0f * s), card.getY() + juce::roundToInt (166.0f * s), card.getWidth() - juce::roundToInt (110.0f * s), juce::roundToInt (55.0f * s));
+        closeBtn.setBounds (card.getCentreX() - juce::roundToInt (60.0f * s), card.getBottom() - juce::roundToInt (48.0f * s), juce::roundToInt (120.0f * s), juce::roundToInt (30.0f * s));
+    }
+};
+
 // ---------------------------------------------------------------- Sobre
 class AboutPanel : public juce::Component
 {
@@ -606,12 +663,12 @@ private:
 
     ui::Panel oscPanel, filterPanel, voicePanel, ampPanel, fltPanel, lfoPanel, fxPanel;
     ui::GlobeView globe;
-    ui::ThemeDots themeDots;
+    ui::OptionsPanel options;
     ui::AboutPanel about;
     juce::MidiKeyboardComponent keyboard;
 
     juce::ComboBox presetBox;
-    juce::TextButton prevBtn { "<" }, nextBtn { ">" }, infoBtn { "i" };
+    juce::TextButton prevBtn { "<" }, nextBtn { ">" }, infoBtn { "i" }, optionsBtn { "OPTIONS" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CosphereEditor)
 };

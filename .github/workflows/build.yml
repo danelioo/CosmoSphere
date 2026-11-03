@@ -2,15 +2,21 @@ name: Build Cosphere
 
 on:
   push:
+    branches: [master, main]
+    tags: ['v*']
   workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   windows:
     runs-on: windows-2022
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
-      # Baixa a fonte Redaction 50 (OFL) para o titulo. Se falhar, o plugin usa uma fonte padrao.
       - name: Fetch Redaction 50 font (optional)
         shell: pwsh
         continue-on-error: true
@@ -19,9 +25,9 @@ jobs:
           if (-not (Test-Path Assets/Redaction50.ttf)) {
             git clone --depth 1 https://github.com/jeremymickel/Redaction font-src
             $f = Get-ChildItem -Path font-src -Recurse -Include "Redaction50-Regular.ttf" | Select-Object -First 1
-            if (-not $f) { $f = Get-ChildItem -Path font-src -Recurse -Include "Redaction50-Regular.otf" | Select-Object -First 1 }
-            if ($f) { Copy-Item $f.FullName Assets/Redaction50.ttf; Write-Host "Fonte encontrada: $($f.FullName)" }
-            else { Write-Host "Fonte nao encontrada, usando fonte padrao." }
+            if ($f) { Copy-Item $f.FullName Assets/Redaction50.ttf }
+            $license = Get-ChildItem -Path font-src -Recurse -File | Where-Object { $_.Name -match '^(OFL|OFL\.txt|LICENSE\.txt)$' } | Select-Object -First 1
+            if ($license) { Copy-Item $license.FullName Assets/Redaction-LICENSE.txt }
           }
 
       - name: Configure
@@ -30,14 +36,33 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Upload VST3 (pasta completa)
-        uses: actions/upload-artifact@v4
-        with:
-          name: Cosphere-VST3-Windows
-          path: build/Cosphere_artefacts/Release/VST3
+      - name: Install Inno Setup
+        shell: pwsh
+        run: choco install innosetup -y --no-progress
 
-      - name: Upload Standalone
+      - name: Package Windows installer
+        shell: pwsh
+        run: |
+          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\Cosphere.iss
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Package portable VST3 and standalone
+        shell: pwsh
+        run: |
+          Compress-Archive -Path 'build/Cosphere_artefacts/Release/VST3/Cosphere.vst3' -DestinationPath 'dist/Cosphere-1.0.0-Windows-x64-VST3.zip'
+          Copy-Item 'build/Cosphere_artefacts/Release/Standalone/Cosphere.exe' 'dist/Cosphere-1.0.0-Windows-x64-Standalone.exe'
+
+      - name: Upload build artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Cosphere-Standalone-Windows
-          path: build/Cosphere_artefacts/Release/Standalone/Cosphere.exe
+          name: Cosphere-1.0.0-Windows-x64
+          path: dist/*
+          if-no-files-found: error
+
+      - name: Publish GitHub release only after successful build
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: pwsh
+        run: |
+          gh release create "${{ github.ref_name }}" dist/* --title "Cosphere 1.0.0" --notes-file RELEASE_NOTES.md --verify-tag

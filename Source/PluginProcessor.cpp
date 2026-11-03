@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Danilo Pereira
 #include "PluginProcessor.h"
 #include "PluginEditor.h"
 #include "Presets.h"
@@ -117,7 +119,9 @@ void CosphereProcessor::loadUiSettings()
 {
     juce::PropertiesFile pf (settingsOptions());
     edW = juce::jlimit (700, 1800, pf.getIntValue ("w", kBaseW));
-    edH = (int) ((double) edW * (double) kBaseH / (double) kBaseW);
+    uiScalePercent = juce::jlimit (70, 180, pf.getIntValue ("scale", juce::roundToInt (100.0f * edW / kBaseW)));
+    edW = uiScalePercent * kBaseW / 100;
+    edH = uiScalePercent * kBaseH / 100;
     theme = juce::jlimit (0, ui::kNumThemes - 1, pf.getIntValue ("theme", 0));
 }
 
@@ -125,6 +129,7 @@ void CosphereProcessor::saveUiSettings()
 {
     juce::PropertiesFile pf (settingsOptions());
     pf.setValue ("w", edW);
+    pf.setValue ("scale", uiScalePercent);
     pf.setValue ("theme", theme);
     pf.saveIfNeeded();
 }
@@ -346,6 +351,7 @@ void CosphereProcessor::getStateInformation (juce::MemoryBlock& destData)
     auto state = apvts.copyState();
     state.setProperty ("prog", currentProgram, nullptr);
     state.setProperty ("w", edW, nullptr);
+    state.setProperty ("scale", uiScalePercent, nullptr);
     state.setProperty ("theme", theme, nullptr);
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
@@ -363,6 +369,11 @@ void CosphereProcessor::setStateInformation (const void* data, int sizeInBytes)
                 edW = juce::jlimit (700, 1800, (int) state.getProperty ("w", kBaseW));
                 edH = (int) ((double) edW * (double) kBaseH / (double) kBaseW);
             }
+            // Preferencia global tem prioridade sobre o tamanho salvo no projeto.
+            // A escala so vem do projeto se nenhuma preferencia global existir.
+            juce::PropertiesFile pf (settingsOptions());
+            if (! pf.containsKey ("scale"))
+                uiScalePercent = juce::jlimit (70, 180, (int) state.getProperty ("scale", juce::roundToInt (100.0f * edW / kBaseW)));
             if (state.hasProperty ("theme"))
                 theme = juce::jlimit (0, ui::kNumThemes - 1, (int) state.getProperty ("theme", 0));
             apvts.replaceState (state);

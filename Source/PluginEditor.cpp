@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
+// Copyright (C) 2026 Danilo Pereira
 #include "PluginEditor.h"
 #include "Presets.h"
 
@@ -72,7 +74,7 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
 
     fxPanel.add (drv); fxPanel.add (crsh); fxPanel.add (chr);
     fxPanel.add (dlm); fxPanel.add (dlt); fxPanel.add (dlf);
-    fxPanel.add (rmx); fxPanel.add (rsz); fxPanel.add (mst);
+    fxPanel.add (rmx); fxPanel.add (rsz);
 
     addAndMakeVisible (oscPanel);
     addAndMakeVisible (filterPanel);
@@ -127,8 +129,25 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
     infoBtn.onClick = [this] { about.setVisible (true); about.toFront (true); };
     addAndMakeVisible (infoBtn);
 
-    themeDots.onSelect = [this] (int i) { applyTheme (i); };
-    addAndMakeVisible (themeDots);
+    addAndMakeVisible (mst); // Master sempre no canto superior direito
+    options.themes.onSelect = [this] (int i) { applyTheme (i); };
+    options.onScale = [this] (int percent)
+    {
+        if (percent <= 0) return;
+        proc.uiScalePercent = percent;
+        setSize (percent * CosphereProcessor::kBaseW / 100,
+                 percent * CosphereProcessor::kBaseH / 100);
+        proc.saveUiSettings();
+    };
+    options.onClose = [this] { options.setVisible (false); };
+    addChildComponent (options);
+    optionsBtn.onClick = [this]
+    {
+        options.scaleBox.setSelectedId (proc.uiScalePercent, juce::dontSendNotification);
+        options.setVisible (true);
+        options.toFront (true);
+    };
+    addAndMakeVisible (optionsBtn);
 
     about.onClose = [this] { about.setVisible (false); };
     addChildComponent (about);
@@ -139,7 +158,8 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
     setResizeLimits (700, 490, 1800, 1260);
     if (auto* c = getConstrainer())
         c->setFixedAspectRatio ((double) CosphereProcessor::kBaseW / (double) CosphereProcessor::kBaseH);
-    setSize (juce::jlimit (700, 1800, proc.edW), juce::jlimit (490, 1260, proc.edH));
+    setSize (juce::jlimit (700, 1800, proc.uiScalePercent * CosphereProcessor::kBaseW / 100),
+             juce::jlimit (490, 1260, proc.uiScalePercent * CosphereProcessor::kBaseH / 100));
 
     startTimerHz (8);
 }
@@ -160,7 +180,7 @@ void CosphereEditor::applyTheme (int index)
 
     const ui::Theme& t = ui::themes()[index];
     lnf.applyTheme (t);
-    themeDots.selected = index;
+    options.themes.selected = index;
 
     keyboard.setColour (juce::MidiKeyboardComponent::whiteNoteColourId, juce::Colour (t.keyWhite));
     keyboard.setColour (juce::MidiKeyboardComponent::blackNoteColourId, juce::Colour (t.keyBlack));
@@ -217,6 +237,7 @@ void CosphereEditor::resized()
     lnf.scale = s;
     proc.edW = getWidth();
     proc.edH = getHeight();
+    proc.uiScalePercent = juce::jlimit (70, 180, juce::roundToInt (100.0f * s));
     dirty = true;
 
     auto area = getLocalBounds();
@@ -225,16 +246,18 @@ void CosphereEditor::resized()
     // ---- cabecalho
     auto header = area.removeFromTop (juce::roundToInt (62.0f * s));
     auto hr = header.reduced (m, juce::roundToInt (8.0f * s));
+    mst.setBounds (hr.removeFromRight (juce::roundToInt (82.0f * s)));
+    hr.removeFromRight (juce::roundToInt (8.0f * s));
     infoBtn.setBounds (hr.removeFromRight (juce::roundToInt (34.0f * s)).withSizeKeepingCentre (juce::roundToInt (34.0f * s), juce::roundToInt (34.0f * s)));
-    hr.removeFromRight (juce::roundToInt (10.0f * s));
+    hr.removeFromRight (juce::roundToInt (8.0f * s));
+    optionsBtn.setBounds (hr.removeFromRight (juce::roundToInt (88.0f * s)).withSizeKeepingCentre (juce::roundToInt (88.0f * s), juce::roundToInt (34.0f * s)));
+    hr.removeFromRight (juce::roundToInt (8.0f * s));
 
-    auto presetArea = hr.removeFromRight (juce::roundToInt (330.0f * s)).withSizeKeepingCentre (juce::roundToInt (330.0f * s), juce::roundToInt (34.0f * s));
+    auto presetArea = hr.removeFromRight (juce::roundToInt (310.0f * s)).withSizeKeepingCentre (juce::roundToInt (310.0f * s), juce::roundToInt (34.0f * s));
     prevBtn.setBounds (presetArea.removeFromLeft (juce::roundToInt (34.0f * s)));
     nextBtn.setBounds (presetArea.removeFromRight (juce::roundToInt (34.0f * s)));
     presetBox.setBounds (presetArea.reduced (juce::roundToInt (5.0f * s), 0));
-    hr.removeFromRight (juce::roundToInt (14.0f * s));
 
-    themeDots.setBounds (hr.removeFromRight (juce::roundToInt (200.0f * s)));
 
     // ---- teclado
     auto kb = area.removeFromBottom (juce::roundToInt (78.0f * s)).reduced (m, 0).withTrimmedBottom (m);
@@ -271,4 +294,5 @@ void CosphereEditor::resized()
     fxPanel.setBounds (right);
 
     about.setBounds (getLocalBounds());
+    options.setBounds (getLocalBounds());
 }
