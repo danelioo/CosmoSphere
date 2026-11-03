@@ -35,10 +35,10 @@ inline const std::vector<Preset>& getPresets()
         { "Hip-Hop & Trap", "Pluggnb Keys",   "o1w=0 o2w=10 o2s=12 omix=0.3 fm=0.2 cut=5000 res=0.1 fam=0.2 aA=0.003 aD=1.5 aS=0.1 aR=1.2 chr=0.6 dlm=0.25 rsz=0.9 rmx=0.6" },
         { "Hip-Hop & Trap", "Jugg Pluck",     "o1w=2 o2w=6 o2s=12 omix=0.4 o2f=5 cut=2800 res=0.35 fam=0.7 aA=0.001 aD=0.22 aS=0 aR=0.12 fD=0.15 fS=0 dlm=0.2 dlt=0.19 dlf=0.3 rmx=0.15" },
         { "Hip-Hop & Trap", "Rage Lead",      "o1w=1 o2w=2 o2f=15 omix=0.5 cut=6000 res=0.15 fam=0.3 aA=0.002 aD=0.3 aS=0.8 aR=0.15 drv=0.85 crsh=0.15 chr=0.3 rmx=0.1" },
-        { "Hip-Hop & Trap", "Rage Stab",      "o1w=1 o2w=1 o2s=7 o2f=20 omix=0.5 cut=3500 res=0.2 fam=0.5 aA=0.001 aD=0.25 aS=0.1 aR=0.1 fD=0.18 fS=0.1 drv=0.8 dlm=0.2 dlt=0.25 rmx=0.1" },
+        { "Hip-Hop & Trap", "Rage Stab",      "o1w=1 o2w=1 o2s=12 o2f=20 omix=0.5 cut=3500 res=0.2 fam=0.5 aA=0.001 aD=0.25 aS=0.1 aR=0.1 fD=0.18 fS=0.1 drv=0.8 dlm=0.2 dlt=0.25 rmx=0.1" },
         { "Hip-Hop & Trap", "Jersey Stab",    "o1w=1 o2w=2 o2s=12 omix=0.45 cut=4500 res=0.25 fam=0.5 aA=0.001 aD=0.18 aS=0 aR=0.1 fD=0.12 fS=0 dlm=0.25 dlt=0.19 dlf=0.3 rmx=0.12" },
-        { "Hip-Hop & Trap", "Jersey Bell",    "o1w=0 o2w=10 o2s=19 omix=0.3 fm=0.4 cut=10000 res=0 fam=0 aA=0.001 aD=0.9 aS=0 aR=0.5 dlm=0.2 dlt=0.19 rmx=0.25" },
-        { "Hip-Hop & Trap", "Hyperpop Saw",   "o1w=1 o2w=1 o2f=35 omix=0.5 sub=0.1 cut=9000 res=0.15 fam=0.2 aA=0.005 aD=0.3 aS=0.8 aR=0.3 drv=0.5 crsh=0.1 chr=0.5 rmx=0.25" },
+        { "Hip-Hop & Trap", "Jersey Bell",    "o1w=0 o2w=10 o2s=12 omix=0.3 fm=0.4 cut=10000 res=0 fam=0 aA=0.001 aD=0.9 aS=0 aR=0.5 dlm=0.2 dlt=0.19 rmx=0.25" },
+        { "Hip-Hop & Trap", "Hyperpop Saw",   "o1w=1 o2w=1 o2f=15 omix=0.5 sub=0.1 cut=9000 res=0.15 fam=0.2 aA=0.005 aD=0.3 aS=0.8 aR=0.3 drv=0.5 crsh=0.1 chr=0.5 rmx=0.25" },
 
         // ------------------------------------------------------------ New Jazz, R&B & Lo-Fi
         { "R&B, Soul & Jazz", "Rhodes Keys",     "o1w=0 o2w=0 o2s=12 o2f=0 omix=0.1 fm=0.3 cut=6000 res=0 fam=0 aA=0.002 aD=1.6 aS=0.2 aR=0.5 chr=0.5 ldst=2 lrt=4.5 ldp=0.1 rmx=0.25" },
@@ -48,16 +48,16 @@ inline const std::vector<Preset>& getPresets()
         { "R&B, Soul & Jazz", "Upright Bass",    "o1w=0 o2w=3 omix=0.3 o2f=0 sub=0.3 cut=700 res=0.1 fam=0.3 aA=0.004 aD=0.5 aS=0.2 aR=0.25 fD=0.2 fS=0.1 rmx=0.05" },
         { "R&B, Soul & Jazz", "Vibraphone",      "o1w=0 o2w=0 o2s=24 omix=0.12 o2f=0 cut=7000 fam=0 aA=0.002 aD=2 aS=0 aR=1.2 ldst=2 lrt=4.2 ldp=0.35 rmx=0.3" },
         { "R&B, Soul & Jazz", "Lo-Fi Keys",      "o1w=3 o2w=0 o2s=12 omix=0.2 fm=0.2 cut=2200 res=0.1 fam=0.1 aA=0.003 aD=1 aS=0.2 aR=0.4 crsh=0.35 chr=0.6 ldst=0 lrt=0.5 ldp=0.08 rmx=0.2" },
-        { "R&B, Soul & Jazz", "Nu Jazz Pad",     "o1w=3 o2w=1 o2s=7 omix=0.4 cut=2200 res=0.1 fam=0.15 aA=0.8 aD=1 aS=0.8 aR=1.5 chr=0.5 rmx=0.4 dlm=0.15" },
+        { "R&B, Soul & Jazz", "Nu Jazz Pad",     "o1w=3 o2w=1 o2s=12 omix=0.4 cut=2200 res=0.1 fam=0.15 aA=0.8 aD=1 aS=0.8 aR=1.5 chr=0.5 rmx=0.4 dlm=0.15" },
 
         // ------------------------------------------------------------ House, Techno & EDM
         { "Electronic & Dance", "Deep House Chord", "o1w=1 o2w=2 o2f=10 omix=0.4 cut=1500 res=0.2 fam=0.5 aA=0.005 aD=0.35 aS=0.3 aR=0.3 fD=0.3 fS=0.15 dlm=0.2 dlt=0.375 rmx=0.25 chr=0.3" },
-        { "Electronic & Dance", "Techno Stab",      "o1w=1 o2w=2 o2s=7 omix=0.5 cut=900 res=0.45 fam=0.7 aA=0.001 aD=0.18 aS=0 aR=0.12 fD=0.14 fS=0 dlm=0.3 dlt=0.375 dlf=0.45 rmx=0.2" },
+        { "Electronic & Dance", "Techno Stab",      "o1w=1 o2w=2 o2s=12 omix=0.5 cut=900 res=0.45 fam=0.7 aA=0.001 aD=0.18 aS=0 aR=0.12 fD=0.14 fS=0 dlm=0.3 dlt=0.375 dlf=0.45 rmx=0.2" },
         { "Electronic & Dance", "Sine Kick",        "o1w=0 o2w=0 omix=0 o2f=0 cut=3000 res=0 fam=0 aA=0.001 aD=0.35 aS=0 aR=0.05 penv=24 pdec=0.03 drv=0.3 rmx=0" },
         { "Electronic & Dance", "Trance Pluck",     "o1w=1 o2w=2 o2s=12 omix=0.4 cut=2500 res=0.3 fam=0.6 aA=0.002 aD=0.3 aS=0 aR=0.2 fD=0.2 fS=0 dlm=0.3 dlt=0.375 dlf=0.5 rmx=0.35" },
-        { "Electronic & Dance", "Super Saw Lead",   "o1w=1 o2w=1 o2f=28 omix=0.6 sub=0.1 cut=7000 res=0.15 fam=0.2 aA=0.01 aD=0.3 aS=0.8 aR=0.3 ldst=0 lrt=5.5 ldp=0.06 chr=0.6 dlm=0.25 dlt=0.375 rmx=0.3" },
+        { "Electronic & Dance", "Super Saw Lead",   "o1w=1 o2w=1 o2f=15 omix=0.6 sub=0.1 cut=7000 res=0.15 fam=0.2 aA=0.01 aD=0.3 aS=0.8 aR=0.3 ldst=0 lrt=5.5 ldp=0.06 chr=0.6 dlm=0.25 dlt=0.375 rmx=0.3" },
         { "Electronic & Dance", "Acid Lead",        "o1w=1 o2w=2 o2f=10 omix=0.3 cut=700 res=0.75 fam=0.8 aA=0.002 aD=0.2 aS=0.7 aR=0.15 fA=0.002 fD=0.25 fS=0.15 fR=0.15 drv=0.5 dlm=0.3 dlt=0.3 dlf=0.45 rmx=0.1" },
-        { "Electronic & Dance", "Reese Bass",       "o1w=1 o2w=1 o2f=45 omix=0.5 sub=0.4 cut=700 res=0.25 fam=0.25 aA=0.005 aD=0.5 aS=0.9 aR=0.2 drv=0.3 chr=0.3 rmx=0.05" },
+        { "Electronic & Dance", "Reese Bass",       "o1w=1 o2w=1 o2f=20 omix=0.5 sub=0.4 cut=700 res=0.25 fam=0.25 aA=0.005 aD=0.5 aS=0.9 aR=0.2 drv=0.3 chr=0.3 rmx=0.05" },
         { "Electronic & Dance", "Wobble Bass",      "o1w=1 o2w=1 o2s=-12 o2f=10 omix=0.5 sub=0.4 cut=450 res=0.5 fam=0.2 aA=0.005 aD=0.3 aS=0.9 aR=0.12 ldst=1 lrt=3 ldp=0.75 lsh=1 drv=0.4 chr=0.15 rmx=0.05" },
         { "Electronic & Dance", "Neon Bass",        "o1w=1 o2w=2 o2f=6 omix=0.4 sub=0.6 cut=500 res=0.35 fam=0.6 aA=0.003 aD=0.25 aS=0.8 aR=0.1 fA=0.003 fD=0.22 fS=0.1 fR=0.1 drv=0.35 rmx=0.05" },
         { "Electronic & Dance", "Pluck Pop",        "o1w=1 o2w=2 o2s=12 omix=0.3 cut=900 res=0.25 fam=0.7 aA=0.002 aD=0.35 aS=0 aR=0.25 fA=0.002 fD=0.18 fS=0 fR=0.2 dlm=0.25 dlt=0.28 dlf=0.35 rmx=0.2" },
@@ -81,7 +81,7 @@ inline const std::vector<Preset>& getPresets()
         { "Games & Sound FX", "Power Up",          "o1w=2 omix=0 cut=12000 res=0 fam=0 aA=0.001 aD=0.5 aS=0 aR=0.1 penv=-24 pdec=0.35 ldst=0 lrt=14 ldp=0.04 crsh=0.1 rmx=0" },
         { "Games & Sound FX", "Game Over Slide",   "o1w=7 omix=0 cut=6000 fam=0 aA=0.001 aD=1.2 aS=0 aR=0.2 penv=14 pdec=0.9 crsh=0.2 rmx=0.1" },
         { "Games & Sound FX", "Boss Battle Bass",  "o1w=2 o2w=7 o2s=-12 omix=0.4 o2f=0 cut=1800 res=0.35 fam=0.4 aA=0.001 aD=0.2 aS=0.7 aR=0.08 fD=0.15 fS=0.3 drv=0.3 crsh=0.15 rmx=0.05" },
-        { "Games & Sound FX", "Arcade FM Bell",    "o1w=0 o2w=0 o2s=7 omix=0 fm=0.7 cut=12000 res=0 fam=0 aA=0.001 aD=0.6 aS=0 aR=0.4 chr=0.2 crsh=0.1 rmx=0.1" },
+        { "Games & Sound FX", "Arcade FM Bell",    "o1w=0 o2w=0 o2s=12 omix=0 fm=0.7 cut=12000 res=0 fam=0 aA=0.001 aD=0.6 aS=0 aR=0.4 chr=0.2 crsh=0.1 rmx=0.1" },
         { "Games & Sound FX", "Overworld Pluck",   "o1w=6 o2w=3 o2s=12 omix=0.3 cut=6000 res=0.1 fam=0.3 aA=0.001 aD=0.3 aS=0 aR=0.15 dlm=0.2 dlt=0.19 rmx=0.15 crsh=0.1" },
         { "Games & Sound FX", "Warp Whistle",      "o1w=0 o2w=3 o2s=12 omix=0.3 cut=8000 aA=0.01 aD=0.3 aS=0.7 aR=0.2 ldst=0 lrt=7 ldp=0.2 mode=1 gld=0.1 rmx=0.2" },
         { "Games & Sound FX", "Dungeon Drone",     "o1w=1 o2w=5 omix=0.2 nse=0.2 sub=0.4 cut=500 res=0.5 fam=0.2 aA=1.5 aD=2 aS=1 aR=3 ldst=1 lrt=0.2 ldp=0.7 lsh=1 dlm=0.3 dlt=0.6 rsz=0.9 rmx=0.6" },
@@ -92,7 +92,7 @@ inline const std::vector<Preset>& getPresets()
         { "Ambient & Cinematic", "Wind Texture",     "o1w=5 o2w=5 omix=0.5 nse=0.6 ftp=1 cut=1200 res=0.6 fam=0.3 aA=1.5 aD=1 aS=1 aR=2 ldst=1 lrt=0.25 ldp=0.7 lsh=1 rsz=0.9 rmx=0.5" },
         { "Ambient & Cinematic", "Glass Choir",      "o1w=10 o2w=8 o2s=12 omix=0.4 cut=6000 res=0.1 fam=0.1 aA=1.2 aD=1.5 aS=0.8 aR=3 chr=0.6 dlm=0.3 dlt=0.55 rsz=0.95 rmx=0.65" },
         { "Ambient & Cinematic", "Dark Atmosphere",  "o1w=1 o2w=9 o2s=-12 omix=0.4 nse=0.1 cut=600 res=0.35 fam=0.3 aA=2.5 aD=3 aS=0.9 aR=4 ldst=1 lrt=0.15 ldp=0.5 lsh=1 chr=0.4 rsz=1 rmx=0.7" },
-        { "Ambient & Cinematic", "Cinematic Swell",  "o1w=1 o2w=1 o2f=25 omix=0.5 cut=500 res=0.2 fam=0.8 aA=3 aD=2 aS=0.9 aR=3 fA=3 fD=2 fS=0.8 chr=0.5 rsz=0.9 rmx=0.55" },
+        { "Ambient & Cinematic", "Cinematic Swell",  "o1w=1 o2w=1 o2f=20 omix=0.5 cut=500 res=0.2 fam=0.8 aA=3 aD=2 aS=0.9 aR=3 fA=3 fD=2 fS=0.8 chr=0.5 rsz=0.9 rmx=0.55" },
         { "Ambient & Cinematic", "Shimmer Pad",      "o1w=0 o2w=10 o2s=12 omix=0.5 cut=9000 res=0 fam=0 aA=1.5 aD=1.5 aS=0.8 aR=3 chr=0.8 dlm=0.35 dlt=0.5 dlf=0.55 rsz=0.95 rmx=0.7" },
 
         // ------------------------------------------------------------ Organic
@@ -102,7 +102,7 @@ inline const std::vector<Preset>& getPresets()
         { "Acoustic & Orchestral", "Clarinet",        "o1w=9 o2w=9 o2s=12 o2f=0 omix=0.2 nse=0.04 cut=3500 res=0.1 fam=0.2 aA=0.06 aD=0.3 aS=0.85 aR=0.2 ldst=0 lrt=5 ldp=0.06 rmx=0.25" },
         { "Acoustic & Orchestral", "Wood Marimba",    "o1w=0 o2w=0 o2s=24 omix=0.18 fm=0.1 cut=6000 res=0 fam=0 aA=0.001 aD=0.5 aS=0 aR=0.3 rmx=0.2" },
         { "Acoustic & Orchestral", "Tonewheel Organ", "o1w=4 o2w=4 o2s=12 omix=0.4 sub=0.3 cut=9000 res=0.05 fam=0 aA=0.005 aD=0.1 aS=1 aR=0.08 ldst=2 lrt=6 ldp=0.15 chr=0.5 drv=0.2 rmx=0.15" },
-        { "Acoustic & Orchestral", "Kalimba Pluck",   "o1w=3 o2w=0 o2s=19 omix=0.15 fm=0.2 cut=5000 res=0 fam=0.3 aA=0.001 aD=0.8 aS=0 aR=0.5 fA=0.001 fD=0.15 fS=0 dlm=0.3 dlt=0.3 dlf=0.35 rmx=0.3" },
+        { "Acoustic & Orchestral", "Kalimba Pluck",   "o1w=3 o2w=0 o2s=12 omix=0.15 fm=0.2 cut=5000 res=0 fam=0.3 aA=0.001 aD=0.8 aS=0 aR=0.5 fA=0.001 fD=0.15 fS=0 dlm=0.3 dlt=0.3 dlf=0.35 rmx=0.3" },
         { "Acoustic & Orchestral", "Choir Aah",       "o1w=8 o2w=8 o2s=12 omix=0.4 nse=0.04 cut=4000 res=0.2 fam=0.1 aA=0.7 aD=0.5 aS=0.9 aR=1.2 ldst=0 lrt=5 ldp=0.08 chr=0.5 rsz=0.8 rmx=0.5" },
         { "Acoustic & Orchestral", "Soft Keys",       "o1w=0 o2w=0 o2s=12 omix=0.1 fm=0.3 cut=7000 fam=0 aA=0.002 aD=1.4 aS=0.15 aR=0.5 chr=0.5 rmx=0.25" },
         // ------------------------------------------------------------ Pop & Mainstream
@@ -123,7 +123,7 @@ inline const std::vector<Preset>& getPresets()
         { "Funk & Disco", "Disco Strings", "o1w=1 o2w=3 o2s=12 omix=0.4 cut=5200 res=0.12 fam=0.1 aA=0.12 aD=0.35 aS=0.83 aR=0.48 chr=0.38 rmx=0.22" },
         { "Funk & Disco", "Clav Groove", "o1w=2 o2w=3 o2s=12 omix=0.24 cut=4500 res=0.24 fam=0.5 aA=0.002 aD=0.21 aS=0.13 aR=0.13 drv=0.19 chr=0.17" },
         { "Funk & Disco", "Funk Synth Bass", "o1w=2 o2w=1 o2s=-12 omix=0.38 sub=0.22 cut=650 res=0.36 fam=0.76 aA=0.002 aD=0.18 aS=0.65 aR=0.13 fD=0.2 drv=0.29" },
-        { "Funk & Disco", "Retro Brass Stab", "o1w=1 o2w=2 o2s=7 omix=0.3 cut=2100 res=0.14 fam=0.69 aA=0.02 aD=0.24 aS=0.48 aR=0.16 chr=0.22 rmx=0.19" },
+        { "Funk & Disco", "Retro Brass Stab", "o1w=1 o2w=2 o2s=12 omix=0.3 cut=2100 res=0.14 fam=0.69 aA=0.02 aD=0.24 aS=0.48 aR=0.16 chr=0.22 rmx=0.19" },
 
         // ------------------------------------------------------------ Latin & Reggae
         { "Latin & Reggae", "Reggae Bubble Keys", "o1w=4 o2w=3 o2s=12 omix=0.22 cut=3500 res=0.1 aA=0.003 aD=0.16 aS=0.15 aR=0.1 chr=0.17 rmx=0.13" },
