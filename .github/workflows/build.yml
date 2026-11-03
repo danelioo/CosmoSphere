@@ -20,7 +20,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: CosmoSphere-VST3-Windows
-          path: build/CosmoSphere_artefacts/Release/VST3/CosmoSphere.vst3
+          path: build/CosmoSphere_artefacts/Release/VST3
 
       - name: Upload Standalone (teste sem DAW)
         uses: actions/upload-artifact@v4
