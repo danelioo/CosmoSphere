@@ -42,6 +42,8 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
       chr (p.apvts, "chr", "CHORUS", Fmt::Pct),
       dlm (p.apvts, "dlm", "DELAY", Fmt::Pct),
       dlt (p.apvts, "dlt", "TIME", Fmt::Sec),
+      dsy (p.apvts, "dsy", "SYNC"),
+      ddiv (p.apvts, "ddiv", "BEAT"),
       dlf (p.apvts, "dlf", "FEEDBACK", Fmt::Pct),
       rmx (p.apvts, "rmx", "REVERB", Fmt::Pct),
       rsz (p.apvts, "rsz", "SIZE", Fmt::Pct),
@@ -74,6 +76,7 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
 
     fxPanel.add (drv); fxPanel.add (crsh); fxPanel.add (chr);
     fxPanel.add (dlm); fxPanel.add (dlt); fxPanel.add (dlf);
+    fxPanel.add (dsy); fxPanel.add (ddiv);
     fxPanel.add (rmx); fxPanel.add (rsz);
 
     addAndMakeVisible (oscPanel);
@@ -90,38 +93,32 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
     keyboard.setLowestVisibleKey (36);
     keyboard.setScrollButtonsVisible (false);
     keyboard.setVelocity (0.85f, true);
+    // JUCE's computer-keyboard note mappings (QWERTY), activated when focused.
+    keyboard.clearKeyMappings();
+    const juce::String keys = "zsxdcvgbhnjm,l.;/";
+    for (int i = 0; i < keys.length(); ++i)
+        keyboard.setKeyPressForNote (juce::KeyPress (keys[i]), i);
+    keyboard.setKeyPressBaseOctave (4);
+    keyboard.setWantsKeyboardFocus (true);
     addAndMakeVisible (keyboard);
 
-    // presets agrupados por categoria
-    {
-        const auto& list = getPresets();
-        juce::String lastCat;
-        for (int i = 0; i < (int) list.size(); ++i)
-        {
-            const juce::String cat (list[(size_t) i].category);
-            if (cat != lastCat)
-            {
-                presetBox.addSectionHeading (cat);
-                lastCat = cat;
-            }
-            presetBox.addItem (list[(size_t) i].name, i + 1);
-        }
-    }
-    presetBox.setSelectedId (proc.getCurrentProgram() + 1, juce::dontSendNotification);
-    presetBox.onChange = [this] { proc.setCurrentProgram (presetBox.getSelectedId() - 1); };
-    addAndMakeVisible (presetBox);
+    presetBtn.onClick = [this] { showPresetMenu(); };
+    presetBtn.setButtonText (proc.getProgramName (proc.getCurrentProgram()));
+    addAndMakeVisible (presetBtn);
 
     prevBtn.onClick = [this]
     {
         const int n = proc.getNumPrograms();
-        const int cur = presetBox.getSelectedId() - 1;
-        presetBox.setSelectedId (((cur + n - 1) % n) + 1, juce::sendNotification);
+        const int cur = proc.getCurrentProgram();
+        proc.setCurrentProgram ((cur + n - 1) % n);
+        presetBtn.setButtonText (proc.getProgramName (proc.getCurrentProgram()));
     };
     nextBtn.onClick = [this]
     {
         const int n = proc.getNumPrograms();
-        const int cur = presetBox.getSelectedId() - 1;
-        presetBox.setSelectedId (((cur + 1) % n) + 1, juce::sendNotification);
+        const int cur = proc.getCurrentProgram();
+        proc.setCurrentProgram ((cur + 1) % n);
+        presetBtn.setButtonText (proc.getProgramName (proc.getCurrentProgram()));
     };
     addAndMakeVisible (prevBtn);
     addAndMakeVisible (nextBtn);
@@ -161,6 +158,9 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
     setSize (juce::jlimit (700, 1800, proc.uiScalePercent * CosphereProcessor::kBaseW / 100),
              juce::jlimit (490, 1260, proc.uiScalePercent * CosphereProcessor::kBaseH / 100));
 
+   #if JucePlugin_Build_Standalone
+    keyboard.grabKeyboardFocus();
+   #endif
     startTimerHz (8);
 }
 
@@ -169,6 +169,36 @@ CosphereEditor::~CosphereEditor()
     stopTimer();
     proc.saveUiSettings();
     setLookAndFeel (nullptr);
+}
+
+void CosphereEditor::showPresetMenu()
+{
+    juce::PopupMenu menu;
+    const auto& presets = getPresets();
+    juce::String lastCategory;
+    juce::PopupMenu submenu;
+    for (int i = 0; i < (int) presets.size(); ++i)
+    {
+        const juce::String category (presets[(size_t) i].category);
+        if (category != lastCategory)
+        {
+            if (lastCategory.isNotEmpty()) menu.addSubMenu (lastCategory, submenu);
+            submenu = juce::PopupMenu();
+            lastCategory = category;
+        }
+        submenu.addItem (i + 1, presets[(size_t) i].name, true, i == proc.getCurrentProgram());
+    }
+    if (lastCategory.isNotEmpty()) menu.addSubMenu (lastCategory, submenu);
+    juce::Component::SafePointer<CosphereEditor> safe (this);
+    menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&presetBtn),
+                        [safe] (int id)
+                        {
+                            if (safe != nullptr && id > 0)
+                            {
+                                safe->proc.setCurrentProgram (id - 1);
+                                safe->presetBtn.setButtonText (safe->proc.getProgramName (id - 1));
+                            }
+                        });
 }
 
 void CosphereEditor::applyTheme (int index)
@@ -197,8 +227,8 @@ void CosphereEditor::applyTheme (int index)
 void CosphereEditor::timerCallback()
 {
     const int cur = proc.getCurrentProgram();
-    if (presetBox.getSelectedId() != cur + 1)
-        presetBox.setSelectedId (cur + 1, juce::dontSendNotification);
+    if (presetBtn.getButtonText() != proc.getProgramName (cur))
+        presetBtn.setButtonText (proc.getProgramName (cur));
 
     if (proc.theme != currentTheme)
         applyTheme (proc.theme);
@@ -220,14 +250,14 @@ void CosphereEditor::paint (juce::Graphics& g)
     g.fillAll();
 
     g.setColour (juce::Colour (t.accent));
-    g.setFont (lnf.titleFont (46.0f * s));
+    g.setFont (lnf.titleFont (69.0f * s));
     g.drawText ("Cosphere",
                 juce::Rectangle<int> (juce::roundToInt (22.0f * s), juce::roundToInt (4.0f * s),
-                                      juce::roundToInt (320.0f * s), juce::roundToInt (54.0f * s)),
+                                      juce::roundToInt (425.0f * s), juce::roundToInt (75.0f * s)),
                 juce::Justification::centredLeft);
 
     g.setColour (juce::Colour (t.border));
-    g.fillRect (juce::Rectangle<int> (juce::roundToInt (10.0f * s), juce::roundToInt (60.0f * s),
+    g.fillRect (juce::Rectangle<int> (juce::roundToInt (10.0f * s), juce::roundToInt (80.0f * s),
                                       getWidth() - juce::roundToInt (20.0f * s), juce::jmax (1, juce::roundToInt (1.0f * s))));
 }
 
@@ -244,9 +274,12 @@ void CosphereEditor::resized()
     const int m = juce::roundToInt (10.0f * s);
 
     // ---- cabecalho
-    auto header = area.removeFromTop (juce::roundToInt (62.0f * s));
+    auto header = area.removeFromTop (juce::roundToInt (82.0f * s));
     auto hr = header.reduced (m, juce::roundToInt (8.0f * s));
-    mst.setBounds (hr.removeFromRight (juce::roundToInt (82.0f * s)));
+    // Dedicated master area: 56px knob with its own label and value.
+    auto masterArea = header.removeFromRight (juce::roundToInt (95.0f * s));
+    mst.setBounds (masterArea.reduced (juce::roundToInt (4.0f * s), 0));
+    hr.removeFromRight (juce::roundToInt (95.0f * s));
     hr.removeFromRight (juce::roundToInt (8.0f * s));
     infoBtn.setBounds (hr.removeFromRight (juce::roundToInt (34.0f * s)).withSizeKeepingCentre (juce::roundToInt (34.0f * s), juce::roundToInt (34.0f * s)));
     hr.removeFromRight (juce::roundToInt (8.0f * s));
@@ -256,7 +289,7 @@ void CosphereEditor::resized()
     auto presetArea = hr.removeFromRight (juce::roundToInt (310.0f * s)).withSizeKeepingCentre (juce::roundToInt (310.0f * s), juce::roundToInt (34.0f * s));
     prevBtn.setBounds (presetArea.removeFromLeft (juce::roundToInt (34.0f * s)));
     nextBtn.setBounds (presetArea.removeFromRight (juce::roundToInt (34.0f * s)));
-    presetBox.setBounds (presetArea.reduced (juce::roundToInt (5.0f * s), 0));
+    presetBtn.setBounds (presetArea.reduced (juce::roundToInt (5.0f * s), 0));
 
 
     // ---- teclado

@@ -36,19 +36,10 @@ jobs:
       - name: Build
         run: cmake --build build --config Release --parallel
 
-      - name: Install Inno Setup
-        shell: pwsh
-        run: choco install innosetup -y --no-progress
-
-      - name: Package Windows installer
-        shell: pwsh
-        run: |
-          & "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe" installer\Cosphere.iss
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
       - name: Package portable VST3 and standalone
         shell: pwsh
         run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
           Compress-Archive -Path 'build/Cosphere_artefacts/Release/VST3/Cosphere.vst3' -DestinationPath 'dist/Cosphere-1.0.0-Windows-x64-VST3.zip'
           Copy-Item 'build/Cosphere_artefacts/Release/Standalone/Cosphere.exe' 'dist/Cosphere-1.0.0-Windows-x64-Standalone.exe'
 

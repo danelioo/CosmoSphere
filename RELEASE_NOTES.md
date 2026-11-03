@@ -1,12 +1,12 @@
-# Cosphere 1.0.0 — primeira versão pública
+# Cosphere 1.0.0
 
-Sintetizador VST3 gratuito para Windows x64, com versão standalone.
+Free GPL-3.0-or-later synthesizer built with JUCE.
 
-- Master no canto superior direito.
-- Nova janela **OPTIONS** com temas e escala da interface persistente.
-- Tipo de filtro abreviado para LP / BP / HP, sem alterar a compatibilidade dos presets.
-- Instalador Windows que copia a pasta VST3 completa para o caminho padrão do sistema.
+- Windows x64 VST3 (portable ZIP) and standalone EXE only. No installer.
+- Larger Cosphere title and master volume in upper-right.
+- Genre submenus for presets; hi-hat preset removed.
+- Delay host-BPM sync is enabled by default (1/1 to 1/32). Standalone falls back to 120 BPM.
+- QWERTY keyboard note mapping available on standalone when the virtual keyboard has focus.
+- Options panel for themes and persistent window scale.
 
-**Instalação:** baixe `Cosphere-1.0.0-Windows-x64-Setup.exe`, execute como administrador, abra sua DAW e atualize a lista de plugins. Há também uma versão VST3 portátil em ZIP e o executável standalone.
-
-**Licença:** GPL-3.0-or-later. Código-fonte disponível nesta mesma release pela opção *Source code* do GitHub. Sem garantia; veja `LICENSE`.
+The Windows artifacts are created on GitHub Actions only after successful build.

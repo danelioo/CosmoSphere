@@ -29,7 +29,6 @@ inline const std::vector<Preset>& getPresets()
         { "Trap & Rap", "Dark Pluck",     "o1w=2 o2w=1 o2s=-12 omix=0.4 cut=1200 res=0.3 fam=0.6 aA=0.002 aD=0.4 aS=0 aR=0.2 fD=0.25 fS=0 dlm=0.2 dlt=0.375 rsz=0.6 rmx=0.25" },
         { "Trap & Rap", "Trap Flute",     "o1w=0 o2w=9 o2s=12 omix=0.3 nse=0.08 cut=4000 res=0.15 fam=0.2 aA=0.05 aD=0.4 aS=0.7 aR=0.4 ldst=0 lrt=5 ldp=0.1 dlm=0.25 dlt=0.375 rmx=0.35" },
         { "Trap & Rap", "Trap Choir",     "o1w=8 o2w=8 o2s=12 omix=0.3 cut=3000 res=0.2 fam=0.2 aA=0.4 aD=0.8 aS=0.7 aR=1.5 chr=0.5 dlm=0.2 rsz=0.9 rmx=0.55" },
-        { "Trap & Rap", "Hi-Hat Noise",   "o1w=5 o2w=5 omix=0 ftp=2 cut=7500 res=0.2 fam=0.2 aA=0.001 aD=0.06 aS=0 aR=0.04 fA=0.001 fD=0.05 fS=0 rmx=0.1" },
 
         // ------------------------------------------------------------ Plugg, Rage & Jersey
         { "Plugg, Rage & Jersey", "Plugg Dream",    "o1w=6 o2w=3 o2s=12 omix=0.35 o2f=6 cut=3500 res=0.2 fam=0.5 aA=0.003 aD=0.7 aS=0 aR=0.9 fD=0.35 fS=0.1 chr=0.7 dlm=0.3 dlt=0.375 dlf=0.45 rsz=0.9 rmx=0.55" },

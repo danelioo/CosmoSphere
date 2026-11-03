@@ -552,7 +552,7 @@ public:
         g.setColour (juce::Colour (t.accent));
         g.drawRoundedRectangle (card, 12.0f * s, 1.5f * s);
         g.setFont (juce::Font (23.0f * s, juce::Font::bold));
-        g.drawText ("OPTIONS", card.toNearestInt().removeFromTop (juce::roundToInt (58.0f * s)), juce::Justification::centred);
+        g.drawText ("Options", card.toNearestInt().removeFromTop (juce::roundToInt (58.0f * s)), juce::Justification::centred);
         g.setColour (juce::Colour (t.text));
         g.setFont (juce::Font (14.0f * s));
         g.drawText ("WINDOW SCALE", scaleBox.getBounds().translated (0, -juce::roundToInt (26.0f * s)), juce::Justification::centred);
@@ -660,6 +660,7 @@ private:
     ui::Knob lrt, ldp, penv, pdec;
     // Efeitos
     ui::Knob drv, crsh, chr, dlm, dlt, dlf, rmx, rsz, mst;
+    ui::Choice dsy, ddiv;
 
     ui::Panel oscPanel, filterPanel, voicePanel, ampPanel, fltPanel, lfoPanel, fxPanel;
     ui::GlobeView globe;
@@ -667,8 +668,9 @@ private:
     ui::AboutPanel about;
     juce::MidiKeyboardComponent keyboard;
 
-    juce::ComboBox presetBox;
-    juce::TextButton prevBtn { "<" }, nextBtn { ">" }, infoBtn { "i" }, optionsBtn { "OPTIONS" };
+    juce::TextButton presetBtn { "Init Saw" };
+    void showPresetMenu();
+    juce::TextButton prevBtn { "<" }, nextBtn { ">" }, infoBtn { "i" }, optionsBtn { "Options" };
 
     JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CosphereEditor)
 };

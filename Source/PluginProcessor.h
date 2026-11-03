@@ -65,7 +65,7 @@ private:
         std::atomic<float> *aA, *aD, *aS, *aR, *fA, *fD, *fS, *fR;
         std::atomic<float> *lrt, *ldp, *lsh, *ldst, *penv, *pdec;
         std::atomic<float> *mode, *gld, *vox;
-        std::atomic<float> *drv, *crsh, *chr, *dlt, *dlf, *dlm, *rsz, *rmx, *mst;
+        std::atomic<float> *drv, *crsh, *chr, *dlt, *dlf, *dlm, *dsy, *ddiv, *rsz, *rmx, *mst;
     } pp {};
 
     cosphere::Engine engine;

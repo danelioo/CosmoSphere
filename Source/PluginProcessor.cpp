@@ -69,6 +69,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     F ("drv", "Drive", 0.0f, 1.0f, 0.0f);
     F ("crsh", "Crush", 0.0f, 1.0f, 0.0f);
     F ("chr", "Chorus", 0.0f, 1.0f, 0.0f);
+    C ("dsy", "Delay Sync", { "Off", "On" }, 1);
+    C ("ddiv", "Delay Division", { "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" }, 2);
     F ("dlt", "Delay Time", 0.02f, 1.0f, 0.35f, 0.5f);
     F ("dlf", "Delay Feedback", 0.0f, 0.9f, 0.35f);
     F ("dlm", "Delay Mix", 0.0f, 1.0f, 0.0f);
@@ -109,7 +111,7 @@ CosphereProcessor::CosphereProcessor()
     pp.penv = g ("penv"); pp.pdec = g ("pdec");
     pp.mode = g ("mode"); pp.gld = g ("gld"); pp.vox = g ("vox");
     pp.drv = g ("drv"); pp.crsh = g ("crsh"); pp.chr = g ("chr"); pp.dlt = g ("dlt");
-    pp.dlf = g ("dlf"); pp.dlm = g ("dlm"); pp.rsz = g ("rsz"); pp.rmx = g ("rmx"); pp.mst = g ("mst");
+    pp.dlf = g ("dlf"); pp.dlm = g ("dlm"); pp.dsy = g ("dsy"); pp.ddiv = g ("ddiv"); pp.rsz = g ("rsz"); pp.rmx = g ("rmx"); pp.mst = g ("mst");
 
     loadUiSettings();
     applyPreset (0);
@@ -209,7 +211,7 @@ void CosphereProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
     if (buffer.getNumChannels() < 2 || n <= 0) return;
 
     // economia de CPU: sem notas, sem MIDI e sem cauda de efeitos -> nada a processar
-    if (engine.numActive() == 0 && midi.isEmpty() && silentSamples > (juce::int64) (sampleRateHz * 0.5))
+    if (engine.numActive() == 0 && midi.isEmpty() && silentSamples > (juce::int64) (sampleRateHz * ((pp.dlm->load() > 0.001f || pp.rmx->load() > 0.001f) ? 10.0 : 0.5)))
     {
         visLevel.store (visLevel.load() * 0.85f);
         visVoices.store (0);
@@ -263,8 +265,21 @@ void CosphereProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         chorus.process (ctx);
     }
 
-    // ---- Delay
-    delay.process (L, R, n, pp.dlt->load(), pp.dlf->load(), pp.dlm->load());
+    // ---- Delay: tempo do host (BPM), com 120 BPM como fallback em standalone.
+    float delaySeconds = pp.dlt->load();
+    if (pp.dsy->load() > 0.5f)
+    {
+        double bpm = 120.0;
+        if (auto* playhead = getPlayHead())
+            if (auto pos = playhead->getPosition())
+                if (auto hostBpm = pos->getBpm())
+                    if (std::isfinite (*hostBpm) && *hostBpm > 0.0)
+                        bpm = *hostBpm;
+        constexpr float beats[] = { 4.0f, 2.0f, 1.0f, 0.5f, 0.25f, 0.125f };
+        const int division = juce::jlimit (0, 5, (int) pp.ddiv->load());
+        delaySeconds = (float) (60.0 / bpm) * beats[division];
+    }
+    delay.process (L, R, n, delaySeconds, pp.dlf->load(), pp.dlm->load());
 
     // ---- Reverb
     const float rmix = pp.rmx->load();
@@ -329,7 +344,7 @@ void CosphereProcessor::applyPreset (int index)
     for (auto* prm : getParameters())
         if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (prm))
         {
-            if (rp->paramID == "vox" || rp->paramID == "mst") continue;
+            if (rp->paramID == "vox" || rp->paramID == "mst" || rp->paramID == "dsy" || rp->paramID == "ddiv") continue;
             rp->setValueNotifyingHost (rp->getDefaultValue());
         }
 
@@ -372,8 +387,12 @@ void CosphereProcessor::setStateInformation (const void* data, int sizeInBytes)
             // Preferencia global tem prioridade sobre o tamanho salvo no projeto.
             // A escala so vem do projeto se nenhuma preferencia global existir.
             juce::PropertiesFile pf (settingsOptions());
-            if (! pf.containsKey ("scale"))
+            if (pf.containsKey ("scale"))
+                uiScalePercent = juce::jlimit (70, 180, pf.getIntValue ("scale", 100));
+            else
                 uiScalePercent = juce::jlimit (70, 180, (int) state.getProperty ("scale", juce::roundToInt (100.0f * edW / kBaseW)));
+            edW = uiScalePercent * kBaseW / 100;
+            edH = uiScalePercent * kBaseH / 100;
             if (state.hasProperty ("theme"))
                 theme = juce::jlimit (0, ui::kNumThemes - 1, (int) state.getProperty ("theme", 0));
             apvts.replaceState (state);

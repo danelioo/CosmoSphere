@@ -581,7 +581,7 @@ public:
     void prepare (double sampleRate)
     {
         sr = (float) sampleRate;
-        size = (int) (sr * 2.0f) + 4;
+        size = (int) (sr * 8.0f) + 4;
         bl.assign ((size_t) size, 0.0f);
         br.assign ((size_t) size, 0.0f);
         w = 0; dsm = 0.35f * sr; lpL = lpR = 0.0f;
