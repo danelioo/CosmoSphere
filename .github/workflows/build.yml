@@ -1,4 +1,4 @@
-name: Build CosmoSphere
+name: Build Cosphere
 
 on:
   push:
@@ -10,6 +10,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Baixa a fonte Redaction 50 (OFL) para o titulo. Se falhar, o plugin usa uma fonte padrao.
+      - name: Fetch Redaction 50 font (optional)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          New-Item -ItemType Directory -Force -Path Assets | Out-Null
+          if (-not (Test-Path Assets/Redaction50.ttf)) {
+            git clone --depth 1 https://github.com/jeremymickel/Redaction font-src
+            $f = Get-ChildItem -Path font-src -Recurse -Include "Redaction50-Regular.ttf" | Select-Object -First 1
+            if (-not $f) { $f = Get-ChildItem -Path font-src -Recurse -Include "Redaction50-Regular.otf" | Select-Object -First 1 }
+            if ($f) { Copy-Item $f.FullName Assets/Redaction50.ttf; Write-Host "Fonte encontrada: $($f.FullName)" }
+            else { Write-Host "Fonte nao encontrada, usando fonte padrao." }
+          }
+
       - name: Configure
         run: cmake -B build -G "Visual Studio 17 2022" -A x64
 
@@ -19,11 +33,11 @@ jobs:
       - name: Upload VST3 (pasta completa)
         uses: actions/upload-artifact@v4
         with:
-          name: CosmoSphere-VST3-Windows
-          path: build/CosmoSphere_artefacts/Release/VST3
+          name: Cosphere-VST3-Windows
+          path: build/Cosphere_artefacts/Release/VST3
 
-      - name: Upload Standalone (teste sem DAW)
+      - name: Upload Standalone
         uses: actions/upload-artifact@v4
         with:
-          name: CosmoSphere-Standalone-Windows
-          path: build/CosmoSphere_artefacts/Release/Standalone/CosmoSphere.exe
+          name: Cosphere-Standalone-Windows
+          path: build/Cosphere_artefacts/Release/Standalone/Cosphere.exe

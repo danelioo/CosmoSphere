@@ -20,7 +20,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
             juce::ParameterID { id, 1 }, name, items, def));
     };
 
-    const juce::StringArray waves { "Sine", "Saw", "Square", "Triangle", "Organ", "Noise" };
+    const juce::StringArray waves { "Sine", "Saw", "Square", "Triangle", "Organ", "Noise",
+                                    "Pulse 25", "Chip Tri", "Vowel", "Reed", "Glass", "Digital" };
 
     // Osciladores
     C ("o1w", "Osc1 Wave", waves, 1);
@@ -49,14 +50,22 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     F ("fS", "Filter Sustain", 0.0f, 1.0f, 0.3f);
     F ("fR", "Filter Release", 0.005f, 8.0f, 0.3f, 0.3f);
 
-    // LFO
+    // Modulacao
     F ("lrt", "LFO Rate", 0.05f, 25.0f, 3.0f, 0.4f);
     F ("ldp", "LFO Depth", 0.0f, 1.0f, 0.0f);
     C ("lsh", "LFO Shape", { "Sine", "Triangle", "Saw", "Random" }, 0);
     C ("ldst", "LFO Dest", { "Pitch", "Cutoff", "Amp", "FM", "PWM" }, 0);
+    F ("penv", "Pitch Env Amount", -36.0f, 36.0f, 0.0f);
+    F ("pdec", "Pitch Env Decay", 0.005f, 2.0f, 0.08f, 0.4f);
+
+    // Vozes
+    C ("mode", "Voice Mode", { "Poly", "Mono" }, 0);
+    F ("gld", "Glide", 0.0f, 2.0f, 0.0f, 0.4f);
+    C ("vox", "Max Voices", { "8", "12", "16", "24", "32" }, 2);
 
     // Efeitos
     F ("drv", "Drive", 0.0f, 1.0f, 0.0f);
+    F ("crsh", "Crush", 0.0f, 1.0f, 0.0f);
     F ("chr", "Chorus", 0.0f, 1.0f, 0.0f);
     F ("dlt", "Delay Time", 0.02f, 1.0f, 0.35f, 0.5f);
     F ("dlf", "Delay Feedback", 0.0f, 0.9f, 0.35f);
@@ -67,9 +76,24 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 
     return layout;
 }
+
+juce::PropertiesFile::Options settingsOptions()
+{
+    juce::PropertiesFile::Options o;
+    o.applicationName = "Cosphere";
+    o.filenameSuffix = ".settings";
+    o.folderName = "Cosphere";
+    o.osxLibrarySubFolder = "Application Support";
+    o.commonToAllUsers = false;
+    o.ignoreCaseOfKeyNames = true;
+    o.storageFormat = juce::PropertiesFile::storeAsXML;
+    return o;
+}
+
+const int kVoiceChoices[5] = { 8, 12, 16, 24, 32 };
 } // namespace
 
-CosmoProcessor::CosmoProcessor()
+CosphereProcessor::CosphereProcessor()
     : juce::AudioProcessor (BusesProperties().withOutput ("Output", juce::AudioChannelSet::stereo(), true)),
       apvts (*this, nullptr, "STATE", createLayout())
 {
@@ -80,21 +104,42 @@ CosmoProcessor::CosmoProcessor()
     pp.aA = g ("aA"); pp.aD = g ("aD"); pp.aS = g ("aS"); pp.aR = g ("aR");
     pp.fA = g ("fA"); pp.fD = g ("fD"); pp.fS = g ("fS"); pp.fR = g ("fR");
     pp.lrt = g ("lrt"); pp.ldp = g ("ldp"); pp.lsh = g ("lsh"); pp.ldst = g ("ldst");
-    pp.drv = g ("drv"); pp.chr = g ("chr"); pp.dlt = g ("dlt"); pp.dlf = g ("dlf");
-    pp.dlm = g ("dlm"); pp.rsz = g ("rsz"); pp.rmx = g ("rmx"); pp.mst = g ("mst");
+    pp.penv = g ("penv"); pp.pdec = g ("pdec");
+    pp.mode = g ("mode"); pp.gld = g ("gld"); pp.vox = g ("vox");
+    pp.drv = g ("drv"); pp.crsh = g ("crsh"); pp.chr = g ("chr"); pp.dlt = g ("dlt");
+    pp.dlf = g ("dlf"); pp.dlm = g ("dlm"); pp.rsz = g ("rsz"); pp.rmx = g ("rmx"); pp.mst = g ("mst");
 
+    loadUiSettings();
     applyPreset (0);
 }
 
-bool CosmoProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
+void CosphereProcessor::loadUiSettings()
+{
+    juce::PropertiesFile pf (settingsOptions());
+    edW = juce::jlimit (700, 1800, pf.getIntValue ("w", kBaseW));
+    edH = (int) ((double) edW * (double) kBaseH / (double) kBaseW);
+    theme = juce::jlimit (0, ui::kNumThemes - 1, pf.getIntValue ("theme", 0));
+}
+
+void CosphereProcessor::saveUiSettings()
+{
+    juce::PropertiesFile pf (settingsOptions());
+    pf.setValue ("w", edW);
+    pf.setValue ("theme", theme);
+    pf.saveIfNeeded();
+}
+
+bool CosphereProcessor::isBusesLayoutSupported (const BusesLayout& layouts) const
 {
     return layouts.getMainOutputChannelSet() == juce::AudioChannelSet::stereo();
 }
 
-void CosmoProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
+void CosphereProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 {
+    sampleRateHz = sampleRate;
     engine.prepare (sampleRate);
     delay.prepare (sampleRate);
+    crusher.reset();
 
     juce::dsp::ProcessSpec spec { sampleRate, (juce::uint32) samplesPerBlock, 2 };
     chorus.prepare (spec);
@@ -109,11 +154,12 @@ void CosmoProcessor::prepareToPlay (double sampleRate, int samplesPerBlock)
 
     masterGain.reset (sampleRate, 0.03);
     masterGain.setCurrentAndTargetValue (pp.mst->load() * pp.mst->load() * 1.5f);
+    silentSamples = 0;
 }
 
-cosmo::SynthParams CosmoProcessor::readParams() const
+cosphere::SynthParams CosphereProcessor::readParams() const
 {
-    cosmo::SynthParams p;
+    cosphere::SynthParams p;
     p.o1w = (int) pp.o1w->load();   p.o2w = (int) pp.o2w->load();
     p.o2semi = pp.o2s->load();      p.o2fine = pp.o2f->load();
     p.omix = pp.omix->load();       p.sub = pp.sub->load();
@@ -125,10 +171,11 @@ cosmo::SynthParams CosmoProcessor::readParams() const
     p.fA = pp.fA->load(); p.fD = pp.fD->load(); p.fS = pp.fS->load(); p.fR = pp.fR->load();
     p.lrate = pp.lrt->load();       p.ldepth = pp.ldp->load();
     p.lshape = (int) pp.lsh->load(); p.ldest = (int) pp.ldst->load();
+    p.penv = pp.penv->load();       p.pdec = pp.pdec->load();
     return p;
 }
 
-void CosmoProcessor::handleMidi (const juce::MidiMessage& m)
+void CosphereProcessor::handleMidi (const juce::MidiMessage& m)
 {
     if (m.isNoteOn())
         engine.noteOn (m.getNoteNumber(), m.getFloatVelocity());
@@ -145,17 +192,31 @@ void CosmoProcessor::handleMidi (const juce::MidiMessage& m)
     }
 }
 
-void CosmoProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
+void CosphereProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiBuffer& midi)
 {
     juce::ScopedNoDenormals noDenormals;
     const int n = buffer.getNumSamples();
     buffer.clear();
+
+    // mistura as teclas clicadas no teclado da interface e atualiza as teclas acesas
+    keyboardState.processNextMidiBuffer (midi, 0, n, true);
+
     if (buffer.getNumChannels() < 2 || n <= 0) return;
+
+    // economia de CPU: sem notas, sem MIDI e sem cauda de efeitos -> nada a processar
+    if (engine.numActive() == 0 && midi.isEmpty() && silentSamples > (juce::int64) (sampleRateHz * 0.5))
+    {
+        visLevel.store (visLevel.load() * 0.85f);
+        visVoices.store (0);
+        return;
+    }
 
     float* L = buffer.getWritePointer (0);
     float* R = buffer.getWritePointer (1);
 
-    const cosmo::SynthParams sp = readParams();
+    engine.setVoicing (kVoiceChoices[juce::jlimit (0, 4, (int) pp.vox->load())],
+                       pp.mode->load() > 0.5f, pp.gld->load());
+    const cosphere::SynthParams sp = readParams();
 
     int pos = 0;
     for (const auto metadata : midi)
@@ -178,10 +239,14 @@ void CosmoProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
         const float comp = 1.0f / (1.0f + drive * 1.5f);
         for (int i = 0; i < n; ++i)
         {
-            L[i] = cosmo::softClip (L[i] * gain) * comp;
-            R[i] = cosmo::softClip (R[i] * gain) * comp;
+            L[i] = cosphere::softClip (L[i] * gain) * comp;
+            R[i] = cosphere::softClip (R[i] * gain) * comp;
         }
     }
+
+    // ---- Crush (bit/sample rate)
+    const float crush = pp.crsh->load();
+    if (crush > 0.01f) crusher.process (L, R, n, crush);
 
     // ---- Chorus
     const float chorusMix = pp.chr->load();
@@ -218,42 +283,50 @@ void CosmoProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::MidiB
     for (int i = 0; i < n; ++i)
     {
         const float gm = masterGain.getNextValue();
-        L[i] = cosmo::softClip (L[i] * gm);
-        R[i] = cosmo::softClip (R[i] * gm);
+        L[i] = cosphere::softClip (L[i] * gm);
+        R[i] = cosphere::softClip (R[i] * gm);
         peak = juce::jmax (peak, std::abs (L[i]), std::abs (R[i]));
     }
 
+    const int active = engine.numActive();
+    if (active == 0 && peak < 1.0e-5f) silentSamples += n;
+    else                               silentSamples = 0;
+
     visLevel.store (juce::jmax (peak, visLevel.load() * 0.85f));
     visLfo.store (engine.getLfoOut());
-    visVoices.store (engine.numActive());
+    visVoices.store (active);
 }
 
 // ---------------------------------------------------------------- Presets / estado
 
-int CosmoProcessor::getNumPrograms() { return (int) getPresets().size(); }
+int CosphereProcessor::getNumPrograms() { return (int) getPresets().size(); }
 
-const juce::String CosmoProcessor::getProgramName (int index)
+const juce::String CosphereProcessor::getProgramName (int index)
 {
     const auto& list = getPresets();
     if (index < 0 || index >= (int) list.size()) return {};
     return list[(size_t) index].name;
 }
 
-void CosmoProcessor::setCurrentProgram (int index)
+void CosphereProcessor::setCurrentProgram (int index)
 {
     if (index < 0 || index >= getNumPrograms()) return;
     currentProgram = index;
     applyPreset (index);
 }
 
-void CosmoProcessor::applyPreset (int index)
+void CosphereProcessor::applyPreset (int index)
 {
     const auto& list = getPresets();
     if (index < 0 || index >= (int) list.size()) return;
 
+    // "vox" (vozes) e "mst" (master) sao ajustes do usuario: o preset nao mexe neles
     for (auto* prm : getParameters())
         if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (prm))
+        {
+            if (rp->paramID == "vox" || rp->paramID == "mst") continue;
             rp->setValueNotifyingHost (rp->getDefaultValue());
+        }
 
     juce::StringArray tokens;
     tokens.addTokens (juce::String (list[(size_t) index].values), " ", "");
@@ -268,35 +341,40 @@ void CosmoProcessor::applyPreset (int index)
     }
 }
 
-void CosmoProcessor::getStateInformation (juce::MemoryBlock& destData)
+void CosphereProcessor::getStateInformation (juce::MemoryBlock& destData)
 {
     auto state = apvts.copyState();
     state.setProperty ("prog", currentProgram, nullptr);
     state.setProperty ("w", edW, nullptr);
-    state.setProperty ("h", edH, nullptr);
+    state.setProperty ("theme", theme, nullptr);
     if (auto xml = state.createXml())
         copyXmlToBinary (*xml, destData);
 }
 
-void CosmoProcessor::setStateInformation (const void* data, int sizeInBytes)
+void CosphereProcessor::setStateInformation (const void* data, int sizeInBytes)
 {
     if (auto xml = getXmlFromBinary (data, sizeInBytes))
         if (xml->hasTagName (apvts.state.getType()))
         {
             auto state = juce::ValueTree::fromXml (*xml);
             currentProgram = juce::jlimit (0, getNumPrograms() - 1, (int) state.getProperty ("prog", 0));
-            edW = juce::jlimit (700, 1800, (int) state.getProperty ("w", 1000));
-            edH = juce::jlimit (448, 1152, (int) state.getProperty ("h", 640));
+            if (state.hasProperty ("w"))
+            {
+                edW = juce::jlimit (700, 1800, (int) state.getProperty ("w", kBaseW));
+                edH = (int) ((double) edW * (double) kBaseH / (double) kBaseW);
+            }
+            if (state.hasProperty ("theme"))
+                theme = juce::jlimit (0, ui::kNumThemes - 1, (int) state.getProperty ("theme", 0));
             apvts.replaceState (state);
         }
 }
 
-juce::AudioProcessorEditor* CosmoProcessor::createEditor()
+juce::AudioProcessorEditor* CosphereProcessor::createEditor()
 {
-    return new CosmoEditor (*this);
+    return new CosphereEditor (*this);
 }
 
 juce::AudioProcessor* JUCE_CALLTYPE createPluginFilter()
 {
-    return new CosmoProcessor();
+    return new CosphereProcessor();
 }

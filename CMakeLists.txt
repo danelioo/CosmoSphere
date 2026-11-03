@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.22)
-project(CosmoSphere VERSION 1.0.0)
+project(Cosphere VERSION 1.1.0)
 
 # Runtime estatico no Windows: o plugin nao exige o VC++ Redistributable instalado
 set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -13,32 +13,44 @@ FetchContent_Declare(JUCE
     GIT_SHALLOW ON)
 FetchContent_MakeAvailable(JUCE)
 
-juce_add_plugin(CosmoSphere
-    COMPANY_NAME "CosmoAudio"
+juce_add_plugin(Cosphere
+    COMPANY_NAME "Danilo Pereira"
     IS_SYNTH TRUE
     NEEDS_MIDI_INPUT TRUE
     NEEDS_MIDI_OUTPUT FALSE
     IS_MIDI_EFFECT FALSE
-    EDITOR_WANTS_KEYBOARD_FOCUS FALSE
+    EDITOR_WANTS_KEYBOARD_FOCUS TRUE
     COPY_PLUGIN_AFTER_BUILD FALSE
-    PLUGIN_MANUFACTURER_CODE Cosm
-    PLUGIN_CODE Csph
+    PLUGIN_MANUFACTURER_CODE Dper
+    PLUGIN_CODE Cphr
     FORMATS VST3 Standalone
-    PRODUCT_NAME "CosmoSphere"
+    PRODUCT_NAME "Cosphere"
     VST3_CATEGORIES Instrument Synth)
 
-target_sources(CosmoSphere PRIVATE
+target_sources(Cosphere PRIVATE
     Source/PluginProcessor.cpp
     Source/PluginEditor.cpp)
 
-target_compile_definitions(CosmoSphere PUBLIC
+# Fonte do titulo (Redaction 50, licenca OFL). Opcional: se Assets/Redaction50.ttf
+# existir (o workflow baixa sozinho), ela e embutida no plugin.
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/Assets/Redaction50.ttf")
+    juce_add_binary_data(CosphereAssets SOURCES Assets/Redaction50.ttf)
+    set_target_properties(CosphereAssets PROPERTIES POSITION_INDEPENDENT_CODE TRUE)
+    target_link_libraries(Cosphere PRIVATE CosphereAssets)
+    target_compile_definitions(Cosphere PUBLIC COSPHERE_HAS_FONT=1)
+endif()
+
+target_compile_definitions(Cosphere PUBLIC
     JUCE_WEB_BROWSER=0
     JUCE_USE_CURL=0
     JUCE_VST3_CAN_REPLACE_VST2=0
     JUCE_DISPLAY_SPLASH_SCREEN=0
     JUCE_STRICT_REFCOUNTEDPOINTER=1)
 
-target_link_libraries(CosmoSphere
+target_compile_options(Cosphere PRIVATE
+    $<$<CXX_COMPILER_ID:MSVC>:/fp:fast>)
+
+target_link_libraries(Cosphere
     PRIVATE
         juce::juce_audio_utils
         juce::juce_dsp

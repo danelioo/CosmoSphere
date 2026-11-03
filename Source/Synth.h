@@ -6,10 +6,15 @@
 #include <cstdint>
 #include <vector>
 
-namespace cosmo
+namespace cosphere
 {
 constexpr float kPi = 3.14159265359f;
 constexpr float kTwoPi = 6.28318530718f;
+constexpr int kMaxVoices = 32;
+
+// Formas de onda: 0 Sine, 1 Saw, 2 Square, 3 Triangle, 4 Organ, 5 Noise,
+// 6 Pulse 25, 7 Chip Tri, 8 Vowel, 9 Reed, 10 Glass, 11 Digital
+constexpr int kNumWaves = 12;
 
 struct SynthParams
 {
@@ -21,6 +26,7 @@ struct SynthParams
     float fA = 0.01f, fD = 0.4f, fS = 0.3f, fR = 0.3f;
     float lrate = 3.0f, ldepth = 0.0f;
     int   lshape = 0, ldest = 0;
+    float penv = 0.0f, pdec = 0.08f;   // envelope de pitch (semitons) e decaimento (s)
 };
 
 inline float softClip (float x) noexcept
@@ -40,6 +46,114 @@ inline float polyBlep (float t, float dt) noexcept
 
 inline float fract (float x) noexcept { return x - std::floor (x); }
 
+// ---------------------------------------------------------------- Wavetables
+// Tabelas de ciclo unico com 4 niveis de largura de banda (menos harmonicos nas notas agudas).
+class WaveTables
+{
+public:
+    static constexpr int N = 2048;
+    static constexpr int kTypes = 6;   // sine, organ, vowel, reed, glass, digital
+    static constexpr int kMips = 4;
+
+    static const WaveTables& instance()
+    {
+        static const WaveTables t;
+        return t;
+    }
+
+    const float* get (int type, int mip) const noexcept
+    {
+        return data.data() + ((size_t) type * kMips + (size_t) mip) * (size_t) (N + 2);
+    }
+
+    static float read (const float* t, float p) noexcept
+    {
+        const float x = p * (float) N;
+        const int i = (int) x;
+        const float f = x - (float) i;
+        return t[i] + f * (t[i + 1] - t[i]);
+    }
+
+private:
+    WaveTables()
+    {
+        data.assign ((size_t) kTypes * kMips * (size_t) (N + 2), 0.0f);
+        static const int hmax[kMips] = { 48, 24, 12, 6 };
+
+        for (int type = 0; type < kTypes; ++type)
+        {
+            float amp[49] = {};
+            float ph[49] = {};
+            fillHarmonics (type, amp, ph);
+
+            for (int mip = 0; mip < kMips; ++mip)
+            {
+                float* t = data.data() + ((size_t) type * kMips + (size_t) mip) * (size_t) (N + 2);
+                const int H = (type == 0) ? 1 : hmax[mip];
+                float peak = 0.0f;
+                for (int i = 0; i < N; ++i)
+                {
+                    double s = 0.0;
+                    for (int h = 1; h <= H; ++h)
+                        if (amp[h] != 0.0f)
+                            s += (double) amp[h] * std::sin (6.283185307179586 * (double) h * (double) i / (double) N + (double) ph[h]);
+                    t[i] = (float) s;
+                    peak = std::max (peak, std::abs (t[i]));
+                }
+                if (peak > 0.0f)
+                    for (int i = 0; i < N; ++i) t[i] /= peak;
+                t[N] = t[0];
+                t[N + 1] = t[1];
+            }
+        }
+    }
+
+    static void fillHarmonics (int type, float* amp, float* ph)
+    {
+        switch (type)
+        {
+            case 0: amp[1] = 1.0f; break;
+            case 1: // organ (drawbars)
+                amp[1] = 1.0f; amp[2] = 0.55f; amp[3] = 0.35f; amp[4] = 0.2f; amp[6] = 0.12f; amp[8] = 0.08f;
+                break;
+            case 2: // vowel (formantes aproximados)
+                for (int h = 1; h <= 48; ++h)
+                {
+                    const float f = (float) h;
+                    const float g1 = std::exp (-std::pow ((f - 5.0f) / 2.2f, 2.0f));
+                    const float g2 = std::exp (-std::pow ((f - 9.0f) / 2.8f, 2.0f));
+                    const float g3 = std::exp (-std::pow ((f - 16.0f) / 3.0f, 2.0f));
+                    amp[h] = (1.0f / std::pow (f, 0.7f)) * (g1 + 0.7f * g2 + 0.25f * g3 + 0.2f);
+                }
+                amp[1] += 0.5f;
+                break;
+            case 3: // reed (harmonicos impares)
+                for (int h = 1; h <= 48; ++h)
+                    amp[h] = (h % 2 == 1) ? 1.0f / std::pow ((float) h, 0.85f) : 0.04f / (float) h;
+                break;
+            case 4: // glass
+                for (int h = 1; h <= 48; ++h)
+                    amp[h] = (h % 3 == 0 ? 0.0f : 1.0f) / std::pow ((float) h, 0.9f);
+                amp[1] += 0.4f;
+                break;
+            default: // digital (amplitudes e fases pseudo-aleatorias fixas)
+            {
+                uint32_t seed = 12345u;
+                auto rnd = [&seed]() { seed = seed * 1664525u + 1013904223u; return (float) (seed >> 8) / 16777216.0f; };
+                for (int h = 1; h <= 48; ++h)
+                {
+                    amp[h] = (0.2f + 0.8f * rnd()) / std::pow ((float) h, 0.6f);
+                    ph[h] = rnd() * kTwoPi;
+                }
+                break;
+            }
+        }
+    }
+
+    std::vector<float> data;
+};
+
+// ---------------------------------------------------------------- Envelope
 struct EnvCoef { float aInc = 0.01f, dK = 0.999f, sus = 0.7f, rK = 0.999f; };
 
 struct Env
@@ -77,15 +191,18 @@ struct Env
     }
 };
 
+// ---------------------------------------------------------------- Engine
 class Engine
 {
 public:
-    static constexpr int kVoices = 8;
     static constexpr int kControl = 32;
+
+    Engine() { tables = &WaveTables::instance(); }
 
     void prepare (double sampleRate)
     {
         sr = (float) sampleRate;
+        tables = &WaveTables::instance();
         reset();
     }
 
@@ -96,42 +213,81 @@ public:
         cutSm = -1.0f; counter = 0;
         sustain = false; bend = 0.0f; modWheel = 0.0f;
         mPitch = mCutOct = mFm = mPw = 0.0f; mAmp = 1.0f;
+        stackCount = 0; lastSemi = -1.0f;
+    }
+
+    void setVoicing (int maxV, bool mono, float glideSeconds)
+    {
+        maxVoices = std::min (std::max (maxV, 1), kMaxVoices);
+        monoMode = mono;
+        glide = glideSeconds;
     }
 
     void noteOn (int note, float vel)
     {
+        const float semi = (float) note;
+
+        if (monoMode)
+        {
+            stackRemove (note);
+            stackPush (note);
+            Voice& v = voices[0];
+            if (v.active && ! v.released)           // legato: so troca o pitch
+            {
+                v.tgt = semi; v.note = note; v.vel = vel;
+                lastSemi = semi;
+                return;
+            }
+            startVoice (v, note, vel, (glide > 0.0f && lastSemi >= 0.0f) ? lastSemi : semi);
+            lastSemi = semi;
+            return;
+        }
+
         Voice* v = nullptr;
-        for (auto& x : voices) if (x.active && x.note == note) { v = &x; break; }
-        if (v == nullptr) for (auto& x : voices) if (! x.active) { v = &x; break; }
+        for (int i = 0; i < maxVoices; ++i)
+            if (voices[(size_t) i].active && voices[(size_t) i].note == note) { v = &voices[(size_t) i]; break; }
+        if (v == nullptr)
+            for (int i = 0; i < maxVoices; ++i)
+                if (! voices[(size_t) i].active) { v = &voices[(size_t) i]; break; }
         if (v == nullptr)
         {
             uint32_t best = 0xffffffffu;
-            for (auto& x : voices) if (x.released && x.age < best) { best = x.age; v = &x; }
+            for (int i = 0; i < maxVoices; ++i)
+                if (voices[(size_t) i].released && voices[(size_t) i].age < best) { best = voices[(size_t) i].age; v = &voices[(size_t) i]; }
             if (v == nullptr)
             {
                 best = 0xffffffffu;
-                for (auto& x : voices) if (x.age < best) { best = x.age; v = &x; }
+                for (int i = 0; i < maxVoices; ++i)
+                    if (voices[(size_t) i].age < best) { best = voices[(size_t) i].age; v = &voices[(size_t) i]; }
             }
         }
         if (v == nullptr) return;
 
-        if (! v->active)
-        {
-            v->s1 = v->s2 = 0.0f;
-            v->amp.v = 0.0f; v->flt.v = 0.0f;
-            v->ph1 = v->ph2 = v->phS = 0.0;
-        }
-        v->active = true; v->released = false; v->held = false;
-        v->note = note; v->vel = vel; v->age = ++counter;
-        const float pan = 0.5f + 0.22f * std::sin ((float) note * 1.7f);
-        v->panL = 1.4142f * std::cos (pan * 0.5f * kPi);
-        v->panR = 1.4142f * std::sin (pan * 0.5f * kPi);
-        v->amp.noteOn();
-        v->flt.noteOn();
+        startVoice (*v, note, vel, (glide > 0.0f && lastSemi >= 0.0f) ? lastSemi : semi);
+        lastSemi = semi;
     }
 
     void noteOff (int note)
     {
+        if (monoMode)
+        {
+            stackRemove (note);
+            Voice& v = voices[0];
+            if (! v.active) return;
+            if (stackCount > 0)
+            {
+                v.tgt = (float) stack[stackCount - 1];
+                v.note = stack[stackCount - 1];
+                return;
+            }
+            if (! v.released)
+            {
+                if (sustain) v.held = true;
+                else         releaseVoice (v);
+            }
+            return;
+        }
+
         for (auto& v : voices)
             if (v.active && v.note == note && ! v.released)
             {
@@ -142,6 +298,7 @@ public:
 
     void allOff()
     {
+        stackCount = 0;
         for (auto& v : voices) if (v.active) releaseVoice (v);
     }
 
@@ -159,7 +316,7 @@ public:
     int   numActive() const { int n = 0; for (auto& v : voices) if (v.active) ++n; return n; }
     float getLfoOut() const { return lfoOut; }
 
-    // soma o resultado em L/R (que devem estar zerados antes)
+    // soma o resultado em L/R (devem estar zerados antes)
     void render (float* L, float* R, int n, const SynthParams& p)
     {
         const EnvCoef ac = makeCoef (p.aA, p.aD, p.aS, p.aR);
@@ -188,14 +345,54 @@ private:
         double ph1 = 0.0, ph2 = 0.0, phS = 0.0;
         Env amp, flt;
         float s1 = 0.0f, s2 = 0.0f;
-        float panL = 1.0f, panR = 1.0f;
+        float cur = 60.0f, tgt = 60.0f;   // pitch atual/alvo em semitons (glide)
+        float pe = 0.0f;                  // envelope de pitch
     };
+
+    void startVoice (Voice& v, int note, float vel, float startSemi)
+    {
+        if (! v.active)
+        {
+            v.s1 = v.s2 = 0.0f;
+            v.amp.v = 0.0f; v.flt.v = 0.0f;
+            v.ph1 = v.ph2 = v.phS = 0.0;
+            v.cur = startSemi;
+        }
+        v.tgt = (float) note;
+        v.note = note; v.vel = vel;
+        v.pe = 1.0f;
+        v.active = true; v.released = false; v.held = false;
+        v.age = ++counter;
+        v.amp.noteOn();
+        v.flt.noteOn();
+    }
 
     void releaseVoice (Voice& v)
     {
         v.released = true;
         v.amp.noteOff();
         v.flt.noteOff();
+    }
+
+    void stackRemove (int note)
+    {
+        for (int i = 0; i < stackCount; ++i)
+            if (stack[i] == note)
+            {
+                for (int j = i; j < stackCount - 1; ++j) stack[j] = stack[j + 1];
+                --stackCount;
+                return;
+            }
+    }
+
+    void stackPush (int note)
+    {
+        if (stackCount == 16)
+        {
+            for (int j = 0; j < 15; ++j) stack[j] = stack[j + 1];
+            --stackCount;
+        }
+        stack[stackCount++] = note;
     }
 
     EnvCoef makeCoef (float a, float d, float s, float r) const
@@ -217,6 +414,9 @@ private:
     void controlStep (const SynthParams& p, int len)
     {
         cutSm += (p.cutoff - cutSm) * 0.2f;
+
+        glideK = (glide > 0.0f) ? 1.0f - std::exp (-3.0f * (float) len / (sr * glide)) : 1.0f;
+        peK = std::exp (-(float) len / (sr * std::max (p.pdec, 0.002f)));
 
         lfoPhase += p.lrate * (float) len / sr;
         if (lfoPhase >= 1.0f) { lfoPhase -= std::floor (lfoPhase); shValue = nextNoise(); }
@@ -246,38 +446,58 @@ private:
         }
     }
 
-    float wave (int type, float p, float dt, float pw) noexcept
+    const float* tableFor (int type, float dt) const noexcept
+    {
+        int id = -1;
+        switch (type)
+        {
+            case 0:  id = 0; break;
+            case 4:  id = 1; break;
+            case 8:  id = 2; break;
+            case 9:  id = 3; break;
+            case 10: id = 4; break;
+            case 11: id = 5; break;
+            default: return nullptr;
+        }
+        int mip = 0;
+        if (id != 0)
+            mip = (dt * 48.0f < 0.5f) ? 0 : (dt * 24.0f < 0.5f) ? 1 : (dt * 12.0f < 0.5f) ? 2 : 3;
+        return tables->get (id, mip);
+    }
+
+    float osc (int type, float p, float dt, float pw, const float* tab) noexcept
     {
         switch (type)
         {
-            case 0:  return std::sin (kTwoPi * p);
             case 1:  return 2.0f * p - 1.0f - polyBlep (p, dt);
             case 2:
+            case 6:
             {
-                float v = p < pw ? 1.0f : -1.0f;
+                const float w = (type == 6) ? 0.25f : pw;
+                float v = p < w ? 1.0f : -1.0f;
                 v += polyBlep (p, dt);
-                v -= polyBlep (fract (p + 1.0f - pw), dt);
+                v -= polyBlep (fract (p + 1.0f - w), dt);
                 return v;
             }
             case 3:  return 4.0f * std::abs (p - 0.5f) - 1.0f;
-            case 4:
+            case 5:  return nextNoise();
+            case 7:
             {
-                const float x = kTwoPi * p;
-                float r = std::sin (x);
-                if (dt * 2.0f < 0.5f) r += 0.55f * std::sin (2.0f * x);
-                if (dt * 3.0f < 0.5f) r += 0.35f * std::sin (3.0f * x);
-                if (dt * 4.0f < 0.5f) r += 0.20f * std::sin (4.0f * x);
-                if (dt * 6.0f < 0.5f) r += 0.12f * std::sin (6.0f * x);
-                return r * 0.45f;
+                const float tri = 4.0f * std::abs (p - 0.5f) - 1.0f;
+                return std::floor ((tri + 1.0f) * 7.5f + 0.5f) / 7.5f - 1.0f;
             }
-            default: return nextNoise();
+            default: return WaveTables::read (tab, p);
         }
     }
 
     void renderVoice (Voice& v, float* L, float* R, int len, const SynthParams& p,
                       const EnvCoef& ac, const EnvCoef& fcf)
     {
-        const float semis = (float) v.note + bend + mPitch;
+        v.cur += (v.tgt - v.cur) * glideK;
+        v.pe *= peK;
+        if (v.pe < 1.0e-5f) v.pe = 0.0f;
+
+        const float semis = v.cur + bend + mPitch + p.penv * v.pe;
         const float f1 = 440.0f * std::exp2 ((semis - 69.0f) / 12.0f);
         const float f2 = f1 * std::exp2 ((p.o2semi + p.o2fine * 0.01f) / 12.0f);
         const float inc1 = std::min (f1 / sr, 0.45f);
@@ -285,6 +505,11 @@ private:
         const float incS = std::min (f1 * 0.5f / sr, 0.45f);
         const float pw = std::min (0.95f, std::max (0.05f, p.pw + mPw));
         const float fm = std::max (0.0f, p.fm + mFm);
+        const float* tab1 = tableFor (p.o1w, inc1);
+        const float* tab2 = tableFor (p.o2w, inc2);
+        const float* sineTab = tables->get (0, 0);
+        const bool useSub = p.sub > 0.0f, useNoise = p.noise > 0.0f;
+        const float mix1 = 1.0f - p.omix, mix2 = p.omix;
 
         float fcut = cutSm * std::exp2 (v.flt.v * p.fenv * 5.0f + mCutOct);
         fcut = std::min (std::max (fcut, 20.0f), std::min (18000.0f, sr * 0.45f));
@@ -298,14 +523,14 @@ private:
             const float ae = v.amp.tick (ac);
             v.flt.tick (fcf);
 
-            const float o2 = wave (p.o2w, (float) v.ph2, inc2, pw);
+            const float o2 = (mix2 > 0.0f || fm > 0.0f) ? osc (p.o2w, (float) v.ph2, inc2, pw, tab2) : 0.0f;
             float p1 = (float) v.ph1;
             if (fm > 0.0f) p1 = fract (p1 + fm * 1.2f * o2);
-            const float o1 = wave (p.o1w, p1, inc1, pw);
+            const float o1 = (mix1 > 0.0f) ? osc (p.o1w, p1, inc1, pw, tab1) : 0.0f;
 
-            float s = o1 * (1.0f - p.omix) + o2 * p.omix;
-            if (p.sub > 0.0f)   s += p.sub * 0.7f * std::sin (kTwoPi * (float) v.phS);
-            if (p.noise > 0.0f) s += p.noise * 0.6f * nextNoise();
+            float s = o1 * mix1 + o2 * mix2;
+            if (useSub)   s += p.sub * 0.7f * WaveTables::read (sineTab, (float) v.phS);
+            if (useNoise) s += p.noise * 0.6f * nextNoise();
 
             v.ph1 += inc1; if (v.ph1 >= 1.0) v.ph1 -= 1.0;
             v.ph2 += inc2; if (v.ph2 >= 1.0) v.ph2 -= 1.0;
@@ -320,15 +545,16 @@ private:
             else if (p.ftype == 2) y = hp;
             y = softClip (y);
 
-            const float out = y * ae * gain;
-            L[i] += out * v.panL;
-            R[i] += out * v.panR;
+            const float out = y * ae * gain;   // mono: sem pan por nota
+            L[i] += out;
+            R[i] += out;
 
             if (v.amp.st == Env::Idle) { v.active = false; break; }
         }
     }
 
-    std::array<Voice, kVoices> voices {};
+    std::array<Voice, kMaxVoices> voices {};
+    const WaveTables* tables = nullptr;
     float sr = 44100.0f;
     uint32_t counter = 0;
     uint32_t rng = 22222u;
@@ -337,10 +563,16 @@ private:
     float cutSm = -1.0f;
     float lfoPhase = 0.0f, shValue = 0.0f, lfoOut = 0.0f;
     float mPitch = 0.0f, mCutOct = 0.0f, mFm = 0.0f, mPw = 0.0f, mAmp = 1.0f;
+    float glideK = 1.0f, peK = 0.99f;
+
+    int maxVoices = 16;
+    bool monoMode = false;
+    float glide = 0.0f, lastSemi = -1.0f;
+    int stack[16] = {};
+    int stackCount = 0;
 };
 
 // ---------------------------------------------------------------- Efeitos
-
 class StereoDelay
 {
 public:
@@ -387,4 +619,33 @@ private:
     float sr = 44100.0f, dsm = 0.0f, lpL = 0.0f, lpR = 0.0f;
 };
 
-} // namespace cosmo
+class BitCrusher
+{
+public:
+    void reset() { holdL = holdR = 0.0f; cnt = 0; }
+
+    void process (float* L, float* R, int n, float amt)
+    {
+        const float bits = 16.0f - amt * 12.0f;
+        const float levels = std::exp2 (bits - 1.0f);
+        const int factor = 1 + (int) (amt * amt * 15.0f);
+        for (int i = 0; i < n; ++i)
+        {
+            if (cnt <= 0)
+            {
+                holdL = std::round (L[i] * levels) / levels;
+                holdR = std::round (R[i] * levels) / levels;
+                cnt = factor;
+            }
+            --cnt;
+            L[i] = holdL;
+            R[i] = holdR;
+        }
+    }
+
+private:
+    float holdL = 0.0f, holdR = 0.0f;
+    int cnt = 0;
+};
+
+} // namespace cosphere

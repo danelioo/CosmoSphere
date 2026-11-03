@@ -1,0 +1,4 @@
+Fonte do titulo: Redaction 50 (Jeremy Mickel / MCKL, licenca SIL OFL).
+O workflow do GitHub baixa o arquivo sozinho para Assets/Redaction50.ttf.
+Se preferir, coloque voce mesmo o arquivo Redaction50-Regular.ttf aqui com o nome Redaction50.ttf.
+Sem a fonte, o plugin usa uma fonte padrao no titulo e continua funcionando normalmente.

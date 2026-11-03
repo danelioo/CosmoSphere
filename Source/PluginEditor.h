@@ -1,8 +1,49 @@
 #pragma once
 #include "PluginProcessor.h"
 
+#if COSPHERE_HAS_FONT
+ #include <BinaryData.h>
+#endif
+
 namespace ui
 {
+constexpr const char* kVersion = "1.1.0";
+
+// ---------------------------------------------------------------- Temas
+struct Theme
+{
+    const char* name;
+    juce::uint32 bgTop, bgBot, panelTop, panelBot, border, text, dim, accent, accent2,
+                 knobTop, knobBot, track, field, keyWhite, keyBlack;
+};
+
+constexpr int kNumThemes = 8;
+
+inline const Theme* themes()
+{
+    static const Theme t[kNumThemes] =
+    {
+        { "Cyan",       0xff0b0d17, 0xff05060c, 0xff141826, 0xff0c0f1a, 0xff232a40, 0xffe8f4f8, 0xff8ea0b4, 0xff19e5f7, 0xff0e8fb8,
+                        0xff39425a, 0xff141826, 0xff1f2638, 0xff10131f, 0xffe9edf2, 0xff12141c },
+        { "Super 8",    0xffefe8d8, 0xffe2d9c4, 0xfff7f2e6, 0xffece4d2, 0xffcfc4aa, 0xff3b362d, 0xff8a8170, 0xffe8533a, 0xff2b8fd6,
+                        0xff6a645a, 0xff2f2c27, 0xffd9cfb8, 0xffe9e1cf, 0xfffbf7ee, 0xff2a2620 },
+        { "Enterprise", 0xff1d1713, 0xff110d0a, 0xff2b231d, 0xff1c1612, 0xff44372c, 0xffd7f3f1, 0xff8f8378, 0xff23d9d0, 0xff1a8f8a,
+                        0xff4d4137, 0xff1b1612, 0xff2e251e, 0xff17120e, 0xffe6e0d4, 0xff1a1410 },
+        { "Rose",       0xff170b14, 0xff0b050a, 0xff24121f, 0xff180b14, 0xff40203a, 0xfff6e8f0, 0xffa88a9c, 0xffff4f9a, 0xffb23a8a,
+                        0xff4a2c42, 0xff1a0d16, 0xff2d1727, 0xff12080f, 0xfff3e9ef, 0xff1a0d16 },
+        { "Lime",       0xff0c120a, 0xff060a05, 0xff161f12, 0xff0e150b, 0xff2a3a22, 0xffeef8e6, 0xff8fa383, 0xffb6ff3c, 0xff5fd12a,
+                        0xff384a2e, 0xff111a0d, 0xff1d2916, 0xff0a1008, 0xffeef3e8, 0xff10170c },
+        { "Amber",      0xff14100a, 0xff0a0805, 0xff211a10, 0xff15100a, 0xff3d3220, 0xfffff0d8, 0xffa89878, 0xffffb020, 0xffe0701a,
+                        0xff4b3e2a, 0xff181208, 0xff2b2214, 0xff100b06, 0xfff4ecdc, 0xff17110a },
+        { "Violet",     0xff0f0b1c, 0xff070510, 0xff1a1530, 0xff100c20, 0xff30284f, 0xffeee8ff, 0xff9a90b8, 0xffa56bff, 0xff5b6bff,
+                        0xff3f3666, 0xff130f26, 0xff241d42, 0xff0c0918, 0xffeeeaf6, 0xff130f20 },
+        { "Vapor",      0xff1a0b2e, 0xff0a0518, 0xff2a1450, 0xff1b0c36, 0xff4b2a80, 0xfff3e8ff, 0xffa890d0, 0xffff71ce, 0xff01cdfe,
+                        0xff5a3a8f, 0xff1d0f3c, 0xff341a63, 0xff150a2a, 0xfff6ecff, 0xff1b0d36 }
+    };
+    return t;
+}
+
+// ---------------------------------------------------------------- Formatacao de valores
 enum class Fmt { Pct, Bipolar, Hz, Sec, Cents, Semis, Plain };
 
 inline juce::String formatValue (Fmt f, double v)
@@ -21,6 +62,7 @@ inline juce::String formatValue (Fmt f, double v)
             if (v >= 100.0)  return juce::String (juce::roundToInt (v)) + " Hz";
             return juce::String (v, 1) + " Hz";
         case Fmt::Sec:
+            if (v <= 0.0005) return "off";
             if (v < 1.0) return juce::String (juce::roundToInt (v * 1000.0)) + " ms";
             return juce::String (v, 2) + " s";
         case Fmt::Cents:
@@ -38,28 +80,53 @@ inline juce::String formatValue (Fmt f, double v)
     }
 }
 
-class CosmoLnF : public juce::LookAndFeel_V4
+// ---------------------------------------------------------------- Look and feel
+class CosphereLnF : public juce::LookAndFeel_V4
 {
 public:
     float scale = 1.0f;
+    const Theme* theme = &themes()[0];
 
-    CosmoLnF()
+    CosphereLnF()
     {
-        setColour (juce::ResizableWindow::backgroundColourId, juce::Colour (0xff070812));
-        setColour (juce::ComboBox::backgroundColourId, juce::Colour (0xff1a1c3a));
-        setColour (juce::ComboBox::textColourId, juce::Colour (0xffe6e9ff));
-        setColour (juce::ComboBox::outlineColourId, juce::Colour (0xff3a3e80));
-        setColour (juce::ComboBox::arrowColourId, juce::Colour (0xff3de0ff));
-        setColour (juce::PopupMenu::backgroundColourId, juce::Colour (0xff14162f));
-        setColour (juce::PopupMenu::textColourId, juce::Colour (0xffe6e9ff));
-        setColour (juce::PopupMenu::highlightedBackgroundColourId, juce::Colour (0xff3a3e9a));
-        setColour (juce::PopupMenu::highlightedTextColourId, juce::Colours::white);
-        setColour (juce::Slider::textBoxTextColourId, juce::Colour (0xffe6e9ff));
+       #if JUCE_WINDOWS
+        setDefaultSansSerifTypefaceName ("Segoe UI");
+       #elif JUCE_MAC
+        setDefaultSansSerifTypefaceName ("Helvetica Neue");
+       #endif
+
+       #if COSPHERE_HAS_FONT
+        titleFace = juce::Typeface::createSystemTypefaceFor (BinaryData::Redaction50_ttf,
+                                                             (size_t) BinaryData::Redaction50_ttfSize);
+       #endif
+        applyTheme (themes()[0]);
+    }
+
+    juce::Font titleFont (float h) const
+    {
+        if (titleFace != nullptr) return juce::Font (titleFace).withHeight (h);
+        return juce::Font (h, juce::Font::bold);
+    }
+
+    void applyTheme (const Theme& t)
+    {
+        theme = &t;
+        setColour (juce::ResizableWindow::backgroundColourId, juce::Colour (t.bgBot));
+        setColour (juce::ComboBox::backgroundColourId, juce::Colour (t.field));
+        setColour (juce::ComboBox::textColourId, juce::Colour (t.text));
+        setColour (juce::ComboBox::outlineColourId, juce::Colour (t.border));
+        setColour (juce::ComboBox::arrowColourId, juce::Colour (t.accent));
+        setColour (juce::PopupMenu::backgroundColourId, juce::Colour (t.panelTop));
+        setColour (juce::PopupMenu::textColourId, juce::Colour (t.text));
+        setColour (juce::PopupMenu::headerTextColourId, juce::Colour (t.accent));
+        setColour (juce::PopupMenu::highlightedBackgroundColourId, juce::Colour (t.accent));
+        setColour (juce::PopupMenu::highlightedTextColourId, juce::Colour (t.bgBot));
+        setColour (juce::Slider::textBoxTextColourId, juce::Colour (t.text));
         setColour (juce::Slider::textBoxOutlineColourId, juce::Colours::transparentBlack);
         setColour (juce::Slider::textBoxBackgroundColourId, juce::Colours::transparentBlack);
-        setColour (juce::TextButton::buttonColourId, juce::Colour (0xff1a1c3a));
-        setColour (juce::TextButton::textColourOffId, juce::Colour (0xff3de0ff));
-        setColour (juce::TextButton::textColourOnId, juce::Colour (0xff3de0ff));
+        setColour (juce::TextButton::buttonColourId, juce::Colour (t.field));
+        setColour (juce::TextButton::textColourOffId, juce::Colour (t.accent));
+        setColour (juce::TextButton::textColourOnId, juce::Colour (t.accent));
     }
 
     juce::Font getLabelFont (juce::Label&) override           { return juce::Font (12.0f * scale); }
@@ -70,6 +137,7 @@ public:
     void drawRotarySlider (juce::Graphics& g, int x, int y, int width, int height, float pos,
                            float startAngle, float endAngle, juce::Slider&) override
     {
+        const Theme& t = *theme;
         auto bounds = juce::Rectangle<float> ((float) x, (float) y, (float) width, (float) height).reduced (4.0f * scale);
         const float radius = juce::jmin (bounds.getWidth(), bounds.getHeight()) * 0.5f;
         const auto c = bounds.getCentre();
@@ -78,37 +146,47 @@ public:
 
         juce::Path track;
         track.addCentredArc (c.x, c.y, arcR, arcR, 0.0f, startAngle, endAngle, true);
-        g.setColour (juce::Colour (0xff24264a));
+        g.setColour (juce::Colour (t.track));
         g.strokePath (track, juce::PathStrokeType (thick, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         const float ang = startAngle + pos * (endAngle - startAngle);
         juce::Path val;
         val.addCentredArc (c.x, c.y, arcR, arcR, 0.0f, startAngle, ang, true);
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xff3de0ff), c.x - arcR, c.y,
-                                                 juce::Colour (0xffb44cff), c.x + arcR, c.y, false));
+        g.setGradientFill (juce::ColourGradient (juce::Colour (t.accent), c.x - arcR, c.y,
+                                                 juce::Colour (t.accent2), c.x + arcR, c.y, false));
         g.strokePath (val, juce::PathStrokeType (thick, juce::PathStrokeType::curved, juce::PathStrokeType::rounded));
 
         const float bodyR = radius - 7.0f * scale;
         if (bodyR > 2.0f)
         {
-            g.setGradientFill (juce::ColourGradient (juce::Colour (0xff3a3d6b), c.x - bodyR * 0.4f, c.y - bodyR * 0.5f,
-                                                     juce::Colour (0xff15162e), c.x + bodyR, c.y + bodyR, true));
+            g.setGradientFill (juce::ColourGradient (juce::Colour (t.knobTop), c.x - bodyR * 0.4f, c.y - bodyR * 0.5f,
+                                                     juce::Colour (t.knobBot), c.x + bodyR, c.y + bodyR, true));
             g.fillEllipse (c.x - bodyR, c.y - bodyR, bodyR * 2.0f, bodyR * 2.0f);
 
             juce::Path ptr;
             ptr.addRoundedRectangle (-1.6f * scale, -bodyR + 2.0f * scale, 3.2f * scale, bodyR * 0.45f, 1.5f);
-            g.setColour (juce::Colours::white);
+            g.setColour (juce::Colour (t.accent).brighter (0.5f));
             g.fillPath (ptr, juce::AffineTransform::rotation (ang).translated (c.x, c.y));
         }
     }
+
+private:
+    juce::Typeface::Ptr titleFace;
 };
 
 inline float scaleOf (juce::Component& c)
 {
-    if (auto* l = dynamic_cast<CosmoLnF*> (&c.getLookAndFeel())) return l->scale;
+    if (auto* l = dynamic_cast<CosphereLnF*> (&c.getLookAndFeel())) return l->scale;
     return 1.0f;
 }
 
+inline const Theme& themeOf (juce::Component& c)
+{
+    if (auto* l = dynamic_cast<CosphereLnF*> (&c.getLookAndFeel())) return *l->theme;
+    return themes()[0];
+}
+
+// ---------------------------------------------------------------- Controles
 class Knob : public juce::Component
 {
 public:
@@ -129,7 +207,7 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        g.setColour (juce::Colour (0xff9aa0d8));
+        g.setColour (juce::Colour (themeOf (*this).dim));
         g.setFont (juce::Font (11.5f * scaleOf (*this), juce::Font::bold));
         g.drawText (label, nameArea, juce::Justification::centred);
     }
@@ -165,7 +243,7 @@ public:
 
     void paint (juce::Graphics& g) override
     {
-        g.setColour (juce::Colour (0xff9aa0d8));
+        g.setColour (juce::Colour (themeOf (*this).dim));
         g.setFont (juce::Font (11.5f * scaleOf (*this), juce::Font::bold));
         g.drawText (label, nameArea, juce::Justification::centred);
     }
@@ -198,14 +276,15 @@ public:
 
     void paint (juce::Graphics& g) override
     {
+        const Theme& t = themeOf (*this);
         const float s = scaleOf (*this);
         auto b = getLocalBounds().toFloat().reduced (1.0f);
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xff16183a), 0.0f, 0.0f,
-                                                 juce::Colour (0xff0d0e24), 0.0f, b.getBottom(), false));
+        g.setGradientFill (juce::ColourGradient (juce::Colour (t.panelTop), 0.0f, 0.0f,
+                                                 juce::Colour (t.panelBot), 0.0f, b.getBottom(), false));
         g.fillRoundedRectangle (b, 10.0f * s);
-        g.setColour (juce::Colour (0xff2b2e63));
+        g.setColour (juce::Colour (t.border));
         g.drawRoundedRectangle (b, 10.0f * s, 1.2f);
-        g.setColour (juce::Colour (0xff3de0ff));
+        g.setColour (juce::Colour (t.accent));
         g.setFont (juce::Font (12.5f * s, juce::Font::bold));
         g.drawText (title, titleArea, juce::Justification::centredLeft);
     }
@@ -231,14 +310,70 @@ private:
     std::vector<juce::Component*> items;
 };
 
-class SphereView : public juce::Component, private juce::Timer
+// ---------------------------------------------------------------- Seletor de tema (bolinhas)
+class ThemeDots : public juce::Component
 {
 public:
-    explicit SphereView (CosmoProcessor& p) : proc (p) { startTimerHz (30); }
-    ~SphereView() override { stopTimer(); }
+    std::function<void (int)> onSelect;
+    int selected = 0;
+
+    ThemeDots() { setMouseCursor (juce::MouseCursor::PointingHandCursor); }
 
     void paint (juce::Graphics& g) override
     {
+        const Theme& cur = themeOf (*this);
+        const float s = scaleOf (*this);
+        auto b = getLocalBounds().toFloat();
+        const float cell = b.getWidth() / (float) kNumThemes;
+        const float d = juce::jmin (cell * 0.72f, b.getHeight() * 0.5f);
+        const float cy = b.getY() + b.getHeight() * 0.38f;
+
+        for (int i = 0; i < kNumThemes; ++i)
+        {
+            const float cx = b.getX() + cell * ((float) i + 0.5f);
+            const bool sel = (i == selected);
+            const float dd = sel ? d * 1.12f : d;
+            g.setColour (juce::Colour (themes()[i].accent));
+            g.fillEllipse (cx - dd * 0.5f, cy - dd * 0.5f, dd, dd);
+            if (sel)
+            {
+                g.setColour (juce::Colour (cur.text));
+                g.drawEllipse (cx - dd * 0.5f - 2.5f * s, cy - dd * 0.5f - 2.5f * s, dd + 5.0f * s, dd + 5.0f * s, 1.6f * s);
+            }
+        }
+
+        g.setColour (juce::Colour (cur.dim));
+        g.setFont (juce::Font (10.5f * s, juce::Font::bold));
+        g.drawText (juce::String ("THEME  ") + themes()[juce::jlimit (0, kNumThemes - 1, selected)].name,
+                    getLocalBounds().removeFromBottom (juce::roundToInt (15.0f * s)),
+                    juce::Justification::centred);
+    }
+
+    void mouseDown (const juce::MouseEvent& e) override
+    {
+        const int i = juce::jlimit (0, kNumThemes - 1, (int) (e.position.x / ((float) getWidth() / (float) kNumThemes)));
+        if (onSelect) onSelect (i);
+    }
+};
+
+// ---------------------------------------------------------------- Globo animado
+class GlobeView : public juce::Component, private juce::Timer
+{
+public:
+    explicit GlobeView (CosphereProcessor& p) : proc (p)
+    {
+        for (int i = 0; i <= kSeg; ++i)
+        {
+            cosU[i] = std::cos (cosphere::kTwoPi * (float) i / (float) kSeg);
+            sinU[i] = std::sin (cosphere::kTwoPi * (float) i / (float) kSeg);
+        }
+        startTimerHz (30);
+    }
+    ~GlobeView() override { stopTimer(); }
+
+    void paint (juce::Graphics& g) override
+    {
+        const Theme& t = themeOf (*this);
         const float s = scaleOf (*this);
         auto b = getLocalBounds().toFloat();
 
@@ -247,111 +382,112 @@ public:
         g.saveState();
         g.reduceClipRegion (clip, juce::AffineTransform());
 
-        g.setGradientFill (juce::ColourGradient (juce::Colour (0xff0e1034), b.getCentreX(), b.getCentreY(),
-                                                 juce::Colour (0xff04040f), b.getX(), b.getY(), true));
+        g.setGradientFill (juce::ColourGradient (juce::Colour (t.panelTop), 0.0f, b.getY(),
+                                                 juce::Colour (t.panelBot), 0.0f, b.getBottom(), false));
         g.fillRect (b);
 
         const float lvl = juce::jlimit (0.0f, 1.0f, level * 2.5f);
-        const float cx = b.getCentreX(), cy = b.getCentreY();
-        const float R = juce::jmin (b.getWidth(), b.getHeight()) * 0.28f * (1.0f + lvl * 0.10f);
+        cx = b.getCentreX();
+        cy = b.getCentreY();
+        R = juce::jmin (b.getWidth(), b.getHeight()) * 0.36f * (1.0f + lvl * 0.05f);
 
-        // estrelas
-        for (int i = 0; i < 70; ++i)
+        // pontinhos de fundo
+        for (int i = 0; i < 60; ++i)
         {
-            const float sx = b.getX() + cosmo::fract ((float) i * 0.7548777f) * b.getWidth();
-            const float sy = b.getY() + cosmo::fract ((float) i * 0.5698403f) * b.getHeight();
-            const float a = 0.12f + 0.25f * (0.5f + 0.5f * std::sin (phase * 2.0f + (float) i));
-            g.setColour (juce::Colours::white.withAlpha (a));
-            const float r = (1.0f + (float) (i % 3) * 0.5f) * s;
+            const float sx = b.getX() + cosphere::fract ((float) i * 0.7548777f) * b.getWidth();
+            const float sy = b.getY() + cosphere::fract ((float) i * 0.5698403f) * b.getHeight();
+            const float a = 0.10f + 0.20f * (0.5f + 0.5f * std::sin (rot * 3.0f + (float) i));
+            g.setColour (juce::Colour (t.dim).withAlpha (a));
+            const float r = (0.9f + (float) (i % 3) * 0.5f) * s;
             g.fillEllipse (sx - r, sy - r, r * 2.0f, r * 2.0f);
         }
 
-        // brilho
-        const auto glow = juce::Colour (0xff3de0ff).interpolatedWith (juce::Colour (0xffb44cff),
-                                                                       0.5f + 0.5f * std::sin (phase * 0.5f));
-        for (int k = 7; k >= 0; --k)
+        // brilho externo
+        for (int k = 6; k >= 0; --k)
         {
-            const float rr = R * (1.08f + 0.13f * (float) k * (1.0f + lvl));
-            g.setColour (glow.withAlpha (0.045f * (1.0f - (float) k / 9.0f)));
+            const float rr = R * (1.03f + 0.09f * (float) k * (0.6f + lvl));
+            g.setColour (juce::Colour (t.accent).withAlpha (0.030f * (1.0f - (float) k / 8.0f)));
             g.fillEllipse (cx - rr, cy - rr, rr * 2.0f, rr * 2.0f);
         }
 
-        // aneis orbitais (parte de tras)
-        drawOrbits (g, cx, cy, R, s, false);
-
-        // corpo da esfera
-        juce::ColourGradient body (juce::Colour (0xffc8f6ff), cx - R * 0.35f, cy - R * 0.40f,
-                                   juce::Colour (0xff1b1050), cx + R * 0.75f, cy + R * 0.95f, true);
-        body.addColour (0.35, juce::Colour (0xff3a7bd5).interpolatedWith (juce::Colour (0xff8a4cff), lvl));
-        g.setGradientFill (body);
+        // miolo translucido
+        g.setGradientFill (juce::ColourGradient (juce::Colour (t.accent).withAlpha (0.16f + 0.10f * lvl), cx - R * 0.3f, cy - R * 0.35f,
+                                                 juce::Colour (t.accent).withAlpha (0.02f), cx + R, cy + R, true));
         g.fillEllipse (cx - R, cy - R, R * 2.0f, R * 2.0f);
 
-        // meridianos e paralelos
-        g.setColour (juce::Colours::white.withAlpha (0.16f));
-        for (int k = 0; k < 4; ++k)
+        // grade: meridianos e paralelos
+        cr = std::cos (rot); sr = std::sin (rot);
+        const float tilt = 0.42f + lfo * 0.12f;
+        ct = std::cos (tilt); st = std::sin (tilt);
+
+        const float lw = 1.1f * s;
+        g.setColour (juce::Colour (t.accent));
+        for (int m = 0; m < 6; ++m)
         {
-            const float w = R * std::abs (std::cos (phase + (float) k * cosmo::kPi * 0.25f));
-            g.drawEllipse (cx - w, cy - R, w * 2.0f, R * 2.0f, 1.0f * s);
+            const float lam = cosphere::kPi * (float) m / 6.0f;
+            const float sl = std::sin (lam), cl = std::cos (lam);
+            float px = 0, py = 0, pd = 0;
+            for (int j = 0; j <= kSeg; ++j)
+            {
+                float x = cosU[j] * sl, y = sinU[j], z = cosU[j] * cl;
+                float sx, sy, d;
+                project (x, y, z, sx, sy, d);
+                if (j > 0) strokeSeg (g, px, py, sx, sy, 0.5f * (pd + d), lw);
+                px = sx; py = sy; pd = d;
+            }
         }
-        const float lat[] = { -0.6f, -0.3f, 0.0f, 0.3f, 0.6f };
-        for (float t : lat)
+        const float lats[5] = { -60.0f, -30.0f, 0.0f, 30.0f, 60.0f };
+        for (int l = 0; l < 5; ++l)
         {
-            const float half = R * std::sqrt (1.0f - t * t);
-            const float yy = cy + t * R;
-            g.drawEllipse (cx - half, yy - half * 0.16f, half * 2.0f, half * 0.32f, 1.0f * s);
+            const float ph = lats[l] * cosphere::kPi / 180.0f;
+            const float cp = std::cos (ph), sp = std::sin (ph);
+            const bool eq = (l == 2);
+            g.setColour (eq ? juce::Colour (t.accent2).brighter (0.2f) : juce::Colour (t.accent));
+            float px = 0, py = 0, pd = 0;
+            for (int j = 0; j <= kSeg; ++j)
+            {
+                float x = cp * cosU[j], y = sp, z = cp * sinU[j];
+                float sx, sy, d;
+                project (x, y, z, sx, sy, d);
+                if (j > 0) strokeSeg (g, px, py, sx, sy, 0.5f * (pd + d), eq ? lw * 1.7f : lw);
+                px = sx; py = sy; pd = d;
+            }
         }
 
-        // aneis orbitais (frente) + particulas
-        drawOrbits (g, cx, cy, R, s, true);
+        // contorno
+        g.setColour (juce::Colour (t.accent).withAlpha (0.85f));
+        g.drawEllipse (cx - R, cy - R, R * 2.0f, R * 2.0f, 1.6f * s);
 
-        g.setColour (juce::Colour (0xff7f86c8));
+        g.setColour (juce::Colour (t.dim));
         g.setFont (juce::Font (11.0f * s, juce::Font::bold));
-        g.drawText ("VOICES " + juce::String (voices) + " / 8",
+        g.drawText ("VOICES " + juce::String (voices),
                     getLocalBounds().reduced (juce::roundToInt (10.0f * s)),
                     juce::Justification::bottomRight);
         g.restoreState();
 
-        g.setColour (juce::Colour (0xff2b2e63));
+        g.setColour (juce::Colour (t.border));
         g.drawRoundedRectangle (b.reduced (1.0f), 12.0f * s, 1.2f);
     }
 
 private:
-    void drawOrbits (juce::Graphics& g, float cx, float cy, float R, float s, bool front)
+    static constexpr int kSeg = 36;
+
+    void project (float x, float y, float z, float& sx, float& sy, float& depth) const
     {
-        const float tilt = 0.5f + lfo * 0.6f;
-        const float rots[2] = { tilt, -tilt * 0.8f + 0.4f };
-        const float rxs[2]  = { R * 1.75f, R * 1.45f };
-        const float rys[2]  = { R * 0.45f, R * 0.60f };
-        const float spd[2]  = { 1.0f, 1.25f };
+        const float x1 = x * cr + z * sr;
+        const float z1 = -x * sr + z * cr;
+        const float y2 = y * ct - z1 * st;
+        const float z2 = y * st + z1 * ct;
+        sx = cx + R * x1;
+        sy = cy - R * y2;
+        depth = z2;
+    }
 
-        if (! front)
-        {
-            for (int ring = 0; ring < 2; ++ring)
-            {
-                juce::Path p;
-                p.addEllipse (cx - rxs[ring], cy - rys[ring], rxs[ring] * 2.0f, rys[ring] * 2.0f);
-                g.setColour (juce::Colour (0xff3de0ff).withAlpha (0.28f));
-                g.strokePath (p, juce::PathStrokeType (1.2f * s), juce::AffineTransform::rotation (rots[ring], cx, cy));
-            }
-            return;
-        }
-
-        const int nShow = juce::jmax (3, voices);
-        for (int i = 0; i < nShow; ++i)
-        {
-            const int ring = i % 2;
-            const float a = phase * spd[ring] * (ring == 0 ? 1.0f : -1.0f) + (float) i * cosmo::kTwoPi / (float) nShow;
-            const float lx = rxs[ring] * std::cos (a);
-            const float ly = rys[ring] * std::sin (a);
-            const float cr = std::cos (rots[ring]), sr = std::sin (rots[ring]);
-            const float px = cx + lx * cr - ly * sr;
-            const float py = cy + lx * sr + ly * cr;
-            const float al = voices > 0 ? 1.0f : 0.35f;
-            g.setColour (juce::Colour (0xffb44cff).withAlpha (0.25f * al));
-            g.fillEllipse (px - 7.0f * s, py - 7.0f * s, 14.0f * s, 14.0f * s);
-            g.setColour (juce::Colours::white.withAlpha (0.9f * al));
-            g.fillEllipse (px - 3.0f * s, py - 3.0f * s, 6.0f * s, 6.0f * s);
-        }
+    static void strokeSeg (juce::Graphics& g, float x0, float y0, float x1, float y1, float depth, float lw)
+    {
+        const float k = 0.5f * (depth + 1.0f);
+        g.setOpacity (0.06f + 0.64f * k * k);
+        g.drawLine (x0, y0, x1, y1, lw);
     }
 
     void timerCallback() override
@@ -359,31 +495,97 @@ private:
         level += (proc.visLevel.load() - level) * 0.35f;
         lfo = proc.visLfo.load();
         voices = proc.visVoices.load();
-        phase += 0.025f + juce::jmin (1.0f, level * 2.5f) * 0.06f;
-        if (phase > 40.0f * cosmo::kPi) phase -= 40.0f * cosmo::kPi;
+
+        // gira mais rapido com mais vozes e mais som
+        const float target = 0.010f + (float) juce::jmin (voices, 12) * 0.010f + juce::jmin (1.0f, level * 2.5f) * 0.05f;
+        speed += (target - speed) * 0.08f;
+        rot += speed;
+        if (rot > cosphere::kTwoPi) rot -= cosphere::kTwoPi;
         repaint();
     }
 
-    CosmoProcessor& proc;
-    float level = 0.0f, lfo = 0.0f, phase = 0.0f;
+    CosphereProcessor& proc;
+    float cosU[kSeg + 1] = {}, sinU[kSeg + 1] = {};
+    float level = 0.0f, lfo = 0.0f, rot = 0.0f, speed = 0.010f;
     int voices = 0;
+    float cx = 0, cy = 0, R = 1, cr = 1, sr = 0, ct = 1, st = 0;
+};
+
+// ---------------------------------------------------------------- Sobre
+class AboutPanel : public juce::Component
+{
+public:
+    std::function<void()> onClose;
+
+    void paint (juce::Graphics& g) override
+    {
+        const Theme& t = themeOf (*this);
+        const float s = scaleOf (*this);
+        g.fillAll (juce::Colour (t.bgBot).withAlpha (0.88f));
+
+        auto card = getLocalBounds().toFloat().withSizeKeepingCentre (540.0f * s, 330.0f * s);
+        g.setGradientFill (juce::ColourGradient (juce::Colour (t.panelTop), 0.0f, card.getY(),
+                                                 juce::Colour (t.panelBot), 0.0f, card.getBottom(), false));
+        g.fillRoundedRectangle (card, 14.0f * s);
+        g.setColour (juce::Colour (t.accent).withAlpha (0.7f));
+        g.drawRoundedRectangle (card, 14.0f * s, 1.5f * s);
+
+        auto r = card.toNearestInt().reduced (juce::roundToInt (24.0f * s));
+        auto* lnf = dynamic_cast<CosphereLnF*> (&getLookAndFeel());
+
+        g.setColour (juce::Colour (t.accent));
+        g.setFont (lnf != nullptr ? lnf->titleFont (64.0f * s) : juce::Font (64.0f * s, juce::Font::bold));
+        g.drawText ("Cosphere", r.removeFromTop (juce::roundToInt (76.0f * s)), juce::Justification::centred);
+
+        g.setColour (juce::Colour (t.dim));
+        g.setFont (juce::Font (14.0f * s));
+        g.drawText (juce::String ("Hybrid polyphonic synthesizer  -  version ") + kVersion,
+                    r.removeFromTop (juce::roundToInt (24.0f * s)), juce::Justification::centred);
+
+        r.removeFromTop (juce::roundToInt (16.0f * s));
+        g.setColour (juce::Colour (t.text));
+        g.setFont (juce::Font (19.0f * s, juce::Font::bold));
+        g.drawText ("Created by Danilo Pereira", r.removeFromTop (juce::roundToInt (30.0f * s)), juce::Justification::centred);
+
+        g.setFont (juce::Font (14.0f * s));
+        g.drawText ("A homemade project, free to download.", r.removeFromTop (juce::roundToInt (24.0f * s)),
+                    juce::Justification::centred);
+
+        r.removeFromTop (juce::roundToInt (14.0f * s));
+        g.setColour (juce::Colour (t.dim));
+        g.setFont (juce::Font (12.0f * s));
+        g.drawText ("Built with JUCE.  Title font: Redaction 50 (SIL Open Font License).",
+                    r.removeFromTop (juce::roundToInt (20.0f * s)), juce::Justification::centred);
+
+        g.setFont (juce::Font (11.5f * s, juce::Font::bold));
+        g.drawText ("CLICK ANYWHERE TO CLOSE", r.removeFromBottom (juce::roundToInt (18.0f * s)), juce::Justification::centred);
+    }
+
+    void mouseDown (const juce::MouseEvent&) override
+    {
+        if (onClose) onClose();
+    }
 };
 } // namespace ui
 
-class CosmoEditor : public juce::AudioProcessorEditor, private juce::Timer
+// ---------------------------------------------------------------- Editor
+class CosphereEditor : public juce::AudioProcessorEditor, private juce::Timer
 {
 public:
-    explicit CosmoEditor (CosmoProcessor&);
-    ~CosmoEditor() override;
+    explicit CosphereEditor (CosphereProcessor&);
+    ~CosphereEditor() override;
 
     void paint (juce::Graphics&) override;
     void resized() override;
 
 private:
     void timerCallback() override;
+    void applyTheme (int index);
 
-    CosmoProcessor& proc;
-    ui::CosmoLnF lnf;
+    CosphereProcessor& proc;
+    ui::CosphereLnF lnf;
+    int currentTheme = -1;
+    bool dirty = false;
 
     // Osciladores
     ui::Choice o1w, o2w;
@@ -391,19 +593,25 @@ private:
     // Filtro
     ui::Choice ftp;
     ui::Knob cut, res, fam;
+    // Vozes
+    ui::Choice mode, vox;
+    ui::Knob gld;
     // Envelopes
     ui::Knob aA, aD, aS, aR, fA, fD, fS, fR;
-    // LFO
+    // Modulacao
     ui::Choice lsh, ldst;
-    ui::Knob lrt, ldp;
+    ui::Knob lrt, ldp, penv, pdec;
     // Efeitos
-    ui::Knob drv, chr, mst, dlm, dlt, dlf, rmx, rsz;
+    ui::Knob drv, crsh, chr, dlm, dlt, dlf, rmx, rsz, mst;
 
-    ui::Panel oscPanel, filterPanel, ampPanel, fltPanel, lfoPanel, fxPanel;
-    ui::SphereView sphere;
+    ui::Panel oscPanel, filterPanel, voicePanel, ampPanel, fltPanel, lfoPanel, fxPanel;
+    ui::GlobeView globe;
+    ui::ThemeDots themeDots;
+    ui::AboutPanel about;
+    juce::MidiKeyboardComponent keyboard;
 
     juce::ComboBox presetBox;
-    juce::TextButton prevBtn { "<" }, nextBtn { ">" };
+    juce::TextButton prevBtn { "<" }, nextBtn { ">" }, infoBtn { "i" };
 
-    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CosmoEditor)
+    JUCE_DECLARE_NON_COPYABLE_WITH_LEAK_DETECTOR (CosphereEditor)
 };
