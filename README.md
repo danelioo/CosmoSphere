@@ -15,3 +15,20 @@ GitHub Actions (`.github/workflows/build.yml`) compiles on Windows using Visual 
 
 ## License
 Copyright (C) 2026 Danilo Pereira. GPL-3.0-or-later; see `LICENSE` and `NOTICE.md`.
+
+
+## Preset library and UI
+
+The factory library contains 89 sounds grouped into 12 musical categories. Older factory
+program indices remain unchanged, so existing project program references are preserved.
+The new Modulation Sync and Delay Sync selectors default to On. Host transport BPM is
+used when provided; standalone uses 120 BPM as its fallback. Both sync sections have
+straight and triplet subdivisions (1/1, 1/2, 1/3T, 1/4, 1/6T, 1/8, 1/12T, 1/16, 1/24T, 1/32).
+
+Resize the window by dragging its corner or select a size under Options. The last width
+is written to the per-user JUCE settings file; the plugin's fixed aspect ratio is kept.
+The About screen links to https://github.com/danelioo/Cosphere.
+
+No installer is provided: the GitHub Actions Windows build produces a portable standalone
+`.exe` and a `.vst3` directory packaged in a ZIP. The `.vst3` bundle belongs under
+`C:\Program Files\Common Files\VST3` for a machine-wide Windows installation.

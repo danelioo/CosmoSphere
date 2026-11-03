@@ -54,6 +54,8 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
 
     // Modulacao
     F ("lrt", "LFO Rate", 0.05f, 25.0f, 3.0f, 0.4f);
+    C ("lsy", "LFO Sync", { "Off", "On" }, 1);
+    C ("ldiv", "LFO Division", { "1/1", "1/2", "1/3T", "1/4", "1/6T", "1/8", "1/12T", "1/16", "1/24T", "1/32" }, 5);
     F ("ldp", "LFO Depth", 0.0f, 1.0f, 0.0f);
     C ("lsh", "LFO Shape", { "Sine", "Triangle", "Saw", "Random" }, 0);
     C ("ldst", "LFO Dest", { "Pitch", "Cutoff", "Amp", "FM", "PWM" }, 0);
@@ -70,7 +72,7 @@ juce::AudioProcessorValueTreeState::ParameterLayout createLayout()
     F ("crsh", "Crush", 0.0f, 1.0f, 0.0f);
     F ("chr", "Chorus", 0.0f, 1.0f, 0.0f);
     C ("dsy", "Delay Sync", { "Off", "On" }, 1);
-    C ("ddiv", "Delay Division", { "1/1", "1/2", "1/4", "1/8", "1/16", "1/32" }, 2);
+    C ("ddiv", "Delay Division", { "1/1", "1/2", "1/3T", "1/4", "1/6T", "1/8", "1/12T", "1/16", "1/24T", "1/32" }, 3);
     F ("dlt", "Delay Time", 0.02f, 1.0f, 0.35f, 0.5f);
     F ("dlf", "Delay Feedback", 0.0f, 0.9f, 0.35f);
     F ("dlm", "Delay Mix", 0.0f, 1.0f, 0.0f);
@@ -107,6 +109,7 @@ CosphereProcessor::CosphereProcessor()
     pp.ftp = g ("ftp"); pp.cut = g ("cut"); pp.res = g ("res"); pp.fam = g ("fam");
     pp.aA = g ("aA"); pp.aD = g ("aD"); pp.aS = g ("aS"); pp.aR = g ("aR");
     pp.fA = g ("fA"); pp.fD = g ("fD"); pp.fS = g ("fS"); pp.fR = g ("fR");
+    pp.lsy = g ("lsy"); pp.ldiv = g ("ldiv");
     pp.lrt = g ("lrt"); pp.ldp = g ("ldp"); pp.lsh = g ("lsh"); pp.ldst = g ("ldst");
     pp.penv = g ("penv"); pp.pdec = g ("pdec");
     pp.mode = g ("mode"); pp.gld = g ("gld"); pp.vox = g ("vox");
@@ -120,10 +123,11 @@ CosphereProcessor::CosphereProcessor()
 void CosphereProcessor::loadUiSettings()
 {
     juce::PropertiesFile pf (settingsOptions());
-    edW = juce::jlimit (700, 1800, pf.getIntValue ("w", kBaseW));
-    uiScalePercent = juce::jlimit (70, 180, pf.getIntValue ("scale", juce::roundToInt (100.0f * edW / kBaseW)));
-    edW = uiScalePercent * kBaseW / 100;
-    edH = uiScalePercent * kBaseH / 100;
+    // Use the exact saved width; rounding to a preset scale loses manual resizes.
+    const int fallback = kBaseW * juce::jlimit (70, 180, pf.getIntValue ("scale", 100)) / 100;
+    edW = juce::jlimit (700, 1800, pf.getIntValue ("w", fallback));
+    edH = juce::roundToInt ((double) edW * (double) kBaseH / (double) kBaseW);
+    uiScalePercent = juce::roundToInt (100.0 * edW / kBaseW);
     theme = juce::jlimit (0, ui::kNumThemes - 1, pf.getIntValue ("theme", 0));
 }
 
@@ -131,6 +135,7 @@ void CosphereProcessor::saveUiSettings()
 {
     juce::PropertiesFile pf (settingsOptions());
     pf.setValue ("w", edW);
+    pf.setValue ("h", edH);
     pf.setValue ("scale", uiScalePercent);
     pf.setValue ("theme", theme);
     pf.saveIfNeeded();
@@ -223,7 +228,24 @@ void CosphereProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
 
     engine.setVoicing (kVoiceChoices[juce::jlimit (0, 4, (int) pp.vox->load())],
                        pp.mode->load() > 0.5f, pp.gld->load());
-    const cosphere::SynthParams sp = readParams();
+    auto sp = readParams();
+    double bpm = 120.0;
+    if (auto* playhead = getPlayHead())
+        if (auto hostPosition = playhead->getPosition())
+            if (auto hostBpm = hostPosition->getBpm())
+                if (std::isfinite (*hostBpm) && *hostBpm > 0.0)
+                    bpm = *hostBpm;
+
+    // Whole, half, quarter, eighth etc., plus exact triplet subdivisions.
+    // Array index is stable and shared by both sync selectors.
+    constexpr float divisionBeats[] = { 4.0f, 2.0f, 4.0f / 3.0f, 1.0f,
+        2.0f / 3.0f, 0.5f, 1.0f / 3.0f, 0.25f, 1.0f / 6.0f, 0.125f };
+    if (pp.lsy->load() > 0.5f)
+    {
+        const int division = juce::jlimit (0, 9, (int) pp.ldiv->load());
+        const double periodSeconds = 60.0 / bpm * divisionBeats[division];
+        sp.lrate = (float) juce::jlimit (0.01, 100.0, 1.0 / periodSeconds);
+    }
 
     int pos = 0;
     for (const auto metadata : midi)
@@ -265,19 +287,12 @@ void CosphereProcessor::processBlock (juce::AudioBuffer<float>& buffer, juce::Mi
         chorus.process (ctx);
     }
 
-    // ---- Delay: tempo do host (BPM), com 120 BPM como fallback em standalone.
+    // Delay follows the same host BPM as LFO; 120 BPM fallback in standalone.
     float delaySeconds = pp.dlt->load();
     if (pp.dsy->load() > 0.5f)
     {
-        double bpm = 120.0;
-        if (auto* playhead = getPlayHead())
-            if (auto pos = playhead->getPosition())
-                if (auto hostBpm = pos->getBpm())
-                    if (std::isfinite (*hostBpm) && *hostBpm > 0.0)
-                        bpm = *hostBpm;
-        constexpr float beats[] = { 4.0f, 2.0f, 1.0f, 0.5f, 0.25f, 0.125f };
-        const int division = juce::jlimit (0, 5, (int) pp.ddiv->load());
-        delaySeconds = (float) (60.0 / bpm) * beats[division];
+        const int division = juce::jlimit (0, 9, (int) pp.ddiv->load());
+        delaySeconds = (float) (60.0 / bpm) * divisionBeats[division];
     }
     delay.process (L, R, n, delaySeconds, pp.dlf->load(), pp.dlm->load());
 
@@ -344,7 +359,7 @@ void CosphereProcessor::applyPreset (int index)
     for (auto* prm : getParameters())
         if (auto* rp = dynamic_cast<juce::RangedAudioParameter*> (prm))
         {
-            if (rp->paramID == "vox" || rp->paramID == "mst" || rp->paramID == "dsy" || rp->paramID == "ddiv") continue;
+            if (rp->paramID == "vox" || rp->paramID == "mst" || rp->paramID == "dsy" || rp->paramID == "ddiv" || rp->paramID == "lsy" || rp->paramID == "ldiv") continue;
             rp->setValueNotifyingHost (rp->getDefaultValue());
         }
 
@@ -384,15 +399,12 @@ void CosphereProcessor::setStateInformation (const void* data, int sizeInBytes)
                 edW = juce::jlimit (700, 1800, (int) state.getProperty ("w", kBaseW));
                 edH = (int) ((double) edW * (double) kBaseH / (double) kBaseW);
             }
-            // Preferencia global tem prioridade sobre o tamanho salvo no projeto.
-            // A escala so vem do projeto se nenhuma preferencia global existir.
+            // Global window preference wins over project snapshots, including exact sizes.
             juce::PropertiesFile pf (settingsOptions());
-            if (pf.containsKey ("scale"))
-                uiScalePercent = juce::jlimit (70, 180, pf.getIntValue ("scale", 100));
-            else
-                uiScalePercent = juce::jlimit (70, 180, (int) state.getProperty ("scale", juce::roundToInt (100.0f * edW / kBaseW)));
-            edW = uiScalePercent * kBaseW / 100;
-            edH = uiScalePercent * kBaseH / 100;
+            if (pf.containsKey ("w"))
+                edW = juce::jlimit (700, 1800, pf.getIntValue ("w", kBaseW));
+            edH = juce::roundToInt ((double) edW * (double) kBaseH / kBaseW);
+            uiScalePercent = juce::roundToInt (100.0 * edW / kBaseW);
             if (state.hasProperty ("theme"))
                 theme = juce::jlimit (0, ui::kNumThemes - 1, (int) state.getProperty ("theme", 0));
             apvts.replaceState (state);

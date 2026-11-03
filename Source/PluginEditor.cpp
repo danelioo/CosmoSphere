@@ -34,6 +34,8 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
       lsh (p.apvts, "lsh", "SHAPE"),
       ldst (p.apvts, "ldst", "DESTINATION"),
       lrt (p.apvts, "lrt", "RATE", Fmt::Hz),
+      lsy (p.apvts, "lsy", "SYNC"),
+      ldiv (p.apvts, "ldiv", "BEAT"),
       ldp (p.apvts, "ldp", "DEPTH", Fmt::Pct),
       penv (p.apvts, "penv", "PITCH ENV", Fmt::Semis),
       pdec (p.apvts, "pdec", "PITCH DECAY", Fmt::Sec),
@@ -54,7 +56,7 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
       ampPanel ("AMP ENVELOPE", 4),
       fltPanel ("FILTER ENVELOPE", 4),
       lfoPanel ("MODULATION", 3),
-      fxPanel ("EFFECTS", 3),
+      fxPanel(),
       globe (p),
       keyboard (p.keyboardState, juce::MidiKeyboardComponent::horizontalKeyboard)
 {
@@ -73,11 +75,9 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
 
     lfoPanel.add (lsh); lfoPanel.add (ldst); lfoPanel.add (lrt);
     lfoPanel.add (ldp); lfoPanel.add (penv); lfoPanel.add (pdec);
+    lfoPanel.add (lsy); lfoPanel.add (ldiv);
 
-    fxPanel.add (drv); fxPanel.add (crsh); fxPanel.add (chr);
-    fxPanel.add (dlm); fxPanel.add (dlt); fxPanel.add (dlf);
-    fxPanel.add (dsy); fxPanel.add (ddiv);
-    fxPanel.add (rmx); fxPanel.add (rsz);
+    fxPanel.configure (drv, crsh, chr, dlm, dlt, dlf, dsy, ddiv, rmx, rsz);
 
     addAndMakeVisible (oscPanel);
     addAndMakeVisible (filterPanel);
@@ -155,8 +155,8 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
     setResizeLimits (700, 490, 1800, 1260);
     if (auto* c = getConstrainer())
         c->setFixedAspectRatio ((double) CosphereProcessor::kBaseW / (double) CosphereProcessor::kBaseH);
-    setSize (juce::jlimit (700, 1800, proc.uiScalePercent * CosphereProcessor::kBaseW / 100),
-             juce::jlimit (490, 1260, proc.uiScalePercent * CosphereProcessor::kBaseH / 100));
+    setSize (proc.edW, proc.edH);
+    readyToPersist = true;
 
    #if JucePlugin_Build_Standalone
     keyboard.grabKeyboardFocus();
@@ -167,7 +167,7 @@ CosphereEditor::CosphereEditor (CosphereProcessor& p)
 CosphereEditor::~CosphereEditor()
 {
     stopTimer();
-    proc.saveUiSettings();
+    if (readyToPersist) proc.saveUiSettings();
     setLookAndFeel (nullptr);
 }
 
@@ -175,20 +175,18 @@ void CosphereEditor::showPresetMenu()
 {
     juce::PopupMenu menu;
     const auto& presets = getPresets();
-    juce::String lastCategory;
-    juce::PopupMenu submenu;
-    for (int i = 0; i < (int) presets.size(); ++i)
+    // Group regardless of source order, preserving program indices for older sessions.
+    juce::StringArray categories;
+    for (const auto& preset : presets)
+        categories.addIfNotAlreadyThere (preset.category);
+    for (const auto& category : categories)
     {
-        const juce::String category (presets[(size_t) i].category);
-        if (category != lastCategory)
-        {
-            if (lastCategory.isNotEmpty()) menu.addSubMenu (lastCategory, submenu);
-            submenu = juce::PopupMenu();
-            lastCategory = category;
-        }
-        submenu.addItem (i + 1, presets[(size_t) i].name, true, i == proc.getCurrentProgram());
+        juce::PopupMenu submenu;
+        for (int i = 0; i < (int) presets.size(); ++i)
+            if (category == presets[(size_t) i].category)
+                submenu.addItem (i + 1, presets[(size_t) i].name, true, i == proc.getCurrentProgram());
+        menu.addSubMenu (category, submenu);
     }
-    if (lastCategory.isNotEmpty()) menu.addSubMenu (lastCategory, submenu);
     juce::Component::SafePointer<CosphereEditor> safe (this);
     menu.showMenuAsync (juce::PopupMenu::Options().withTargetComponent (&presetBtn),
                         [safe] (int id)
@@ -265,10 +263,13 @@ void CosphereEditor::resized()
 {
     const float s = (float) getWidth() / (float) CosphereProcessor::kBaseW;
     lnf.scale = s;
-    proc.edW = getWidth();
-    proc.edH = getHeight();
-    proc.uiScalePercent = juce::jlimit (70, 180, juce::roundToInt (100.0f * s));
-    dirty = true;
+    if (readyToPersist)
+    {
+        proc.edW = getWidth();
+        proc.edH = getHeight();
+        proc.uiScalePercent = juce::jlimit (70, 180, juce::roundToInt (100.0f * s));
+        dirty = true;
+    }
 
     auto area = getLocalBounds();
     const int m = juce::roundToInt (10.0f * s);
@@ -322,7 +323,7 @@ void CosphereEditor::resized()
     fltPanel.setBounds (centre);
 
     const int rh = right.getHeight();
-    lfoPanel.setBounds (right.removeFromTop (rh * 38 / 100));
+    lfoPanel.setBounds (right.removeFromTop (rh * 44 / 100));
     right.removeFromTop (gap);
     fxPanel.setBounds (right);
 

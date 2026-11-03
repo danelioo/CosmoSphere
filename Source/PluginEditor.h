@@ -317,6 +317,77 @@ private:
     std::vector<juce::Component*> items;
 };
 
+// Effects have purpose-built sections so Reverb and Size stay together.
+class EffectsPanel : public Panel
+{
+public:
+    EffectsPanel() : Panel ("EFFECTS", 3) {}
+    void configure (Knob& drive, Knob& crush, Knob& chorus,
+                    Knob& delayMix, Knob& time, Knob& feedback,
+                    Choice& sync, Choice& division, Knob& reverb, Knob& size)
+    {
+        controls = { &drive, &crush, &chorus, &delayMix, &time, &feedback,
+                     &sync, &division, &reverb, &size };
+        for (auto* c : controls) add (*c);
+    }
+    void paint (juce::Graphics& g) override
+    {
+        Panel::paint (g);
+        auto& t = themeOf (*this);
+        const float s = scaleOf (*this);
+        g.setColour (juce::Colour (t.accent));
+        g.setFont (juce::Font (12.5f*s, juce::Font::bold));
+        g.drawText ("EFFECTS", juce::Rectangle<int> (juce::roundToInt(12*s), juce::roundToInt(6*s),
+                     getWidth() - juce::roundToInt(24*s), juce::roundToInt(18*s)), juce::Justification::centredLeft);
+        g.setColour (juce::Colour (t.dim));
+        g.setFont (juce::Font (10.0f * s, juce::Font::bold));
+        g.drawText ("DELAY", delayHeader, juce::Justification::centredLeft);
+        g.drawText ("REVERB", reverbHeader, juce::Justification::centredLeft);
+        g.setColour (juce::Colour (t.border));
+        g.fillRect (delayLine);
+        g.fillRect (reverbLine);
+    }
+    void resized() override
+    {
+        // Only use Panel::paint; Panel::resized would impose a uniform grid.
+        if (controls.size() != 10) return;
+        const float s = scaleOf (*this);
+        auto r = getLocalBounds().reduced (juce::roundToInt (8 * s), juce::roundToInt (6 * s));
+        r.removeFromTop (juce::roundToInt (20 * s));
+        const int gap = juce::roundToInt (3 * s);
+        auto row = [&] (int h) { return r.removeFromTop (h); };
+        auto arrange = [&] (juce::Rectangle<int> bounds, int offset, int count)
+        {
+            const int width = bounds.getWidth() / count;
+            for (int i = 0; i < count; ++i)
+                controls[(size_t) (offset + i)]->setBounds (bounds.getX() + i * width,
+                    bounds.getY(), i == count-1 ? bounds.getRight() - (bounds.getX()+i*width) : width, bounds.getHeight());
+        };
+        const int available = r.getHeight();
+        const int topH = available * 23 / 100;
+        const int delayH = available * 23 / 100;
+        const int syncH = available * 16 / 100;
+        const int labelH = juce::jmax (12, juce::roundToInt (16 * s));
+        arrange (row (topH), 0, 3);
+        delayHeader = row (labelH);
+        delayLine = { delayHeader.getX() + juce::roundToInt (45*s), delayHeader.getCentreY(),
+                      juce::jmax (0, delayHeader.getWidth()-juce::roundToInt (48*s)), juce::jmax (1, juce::roundToInt(s)) };
+        arrange (row (delayH), 3, 3);
+        auto syncRow = row (syncH).reduced (gap, 0);
+        controls[6]->setBounds (syncRow.removeFromLeft (syncRow.getWidth()/2));
+        controls[7]->setBounds (syncRow);
+        reverbHeader = row (labelH);
+        reverbLine = { reverbHeader.getX() + juce::roundToInt (55*s), reverbHeader.getCentreY(),
+                       juce::jmax (0, reverbHeader.getWidth()-juce::roundToInt (58*s)), juce::jmax (1, juce::roundToInt(s)) };
+        auto revRow = r;
+        revRow.reduce (juce::roundToInt (15*s), 0);
+        arrange (revRow, 8, 2);
+    }
+private:
+    std::vector<juce::Component*> controls;
+    juce::Rectangle<int> delayHeader, reverbHeader, delayLine, reverbLine;
+};
+
 // ---------------------------------------------------------------- Seletor de tema (bolinhas)
 class ThemeDots : public juce::Component
 {
@@ -524,7 +595,7 @@ class OptionsPanel : public juce::Component
 public:
     ThemeDots themes;
     juce::ComboBox scaleBox;
-    juce::TextButton closeBtn { "CLOSE" };
+    juce::TextButton closeBtn { "Done" };
     std::function<void (int)> onScale;
     std::function<void()> onClose;
 
@@ -551,19 +622,26 @@ public:
         g.fillRoundedRectangle (card, 12.0f * s);
         g.setColour (juce::Colour (t.accent));
         g.drawRoundedRectangle (card, 12.0f * s, 1.5f * s);
-        g.setFont (juce::Font (23.0f * s, juce::Font::bold));
-        g.drawText ("Options", card.toNearestInt().removeFromTop (juce::roundToInt (58.0f * s)), juce::Justification::centred);
+        auto content = card.toNearestInt().reduced (juce::roundToInt (26*s));
+        g.setFont (juce::Font (24.0f * s, juce::Font::bold));
+        g.drawText ("Options", content.removeFromTop (juce::roundToInt (45*s)), juce::Justification::centredLeft);
+        g.setColour (juce::Colour (t.dim));
+        g.setFont (juce::Font (12.0f * s));
+        g.drawText ("Appearance and display", content.removeFromTop (juce::roundToInt (25*s)), juce::Justification::centredLeft);
+        g.setColour (juce::Colour (t.border));
+        g.fillRect (content.removeFromTop (juce::jmax (1, juce::roundToInt(s))));
         g.setColour (juce::Colour (t.text));
-        g.setFont (juce::Font (14.0f * s));
-        g.drawText ("WINDOW SCALE", scaleBox.getBounds().translated (0, -juce::roundToInt (26.0f * s)), juce::Justification::centred);
+        g.setFont (juce::Font (13.0f*s, juce::Font::bold));
+        g.drawText ("Window scale", scaleBox.getBounds().translated (0, -juce::roundToInt (24*s)), juce::Justification::centredLeft);
+        g.drawText ("Color theme", themes.getBounds().translated (0, -juce::roundToInt (21*s)), juce::Justification::centredLeft);
     }
 
     void resized() override
     {
         const float s = scaleOf (*this);
         auto card = getLocalBounds().withSizeKeepingCentre (juce::roundToInt (460.0f * s), juce::roundToInt (290.0f * s));
-        scaleBox.setBounds (card.getCentreX() - juce::roundToInt (90.0f * s), card.getY() + juce::roundToInt (112.0f * s), juce::roundToInt (180.0f * s), juce::roundToInt (30.0f * s));
-        themes.setBounds (card.getX() + juce::roundToInt (55.0f * s), card.getY() + juce::roundToInt (166.0f * s), card.getWidth() - juce::roundToInt (110.0f * s), juce::roundToInt (55.0f * s));
+        scaleBox.setBounds (card.getX() + juce::roundToInt (32*s), card.getY() + juce::roundToInt (115*s), juce::roundToInt (160*s), juce::roundToInt (30*s));
+        themes.setBounds (card.getX() + juce::roundToInt (32*s), card.getY() + juce::roundToInt (189*s), card.getWidth() - juce::roundToInt (64*s), juce::roundToInt (43*s));
         closeBtn.setBounds (card.getCentreX() - juce::roundToInt (60.0f * s), card.getBottom() - juce::roundToInt (48.0f * s), juce::roundToInt (120.0f * s), juce::roundToInt (30.0f * s));
     }
 };
@@ -573,6 +651,19 @@ class AboutPanel : public juce::Component
 {
 public:
     std::function<void()> onClose;
+    juce::HyperlinkButton githubLink { "github.com/danelioo/Cosphere", juce::URL ("https://github.com/danelioo/Cosphere") };
+    AboutPanel()
+    {
+        addAndMakeVisible (githubLink);
+        githubLink.setTooltip ("Open Cosphere on GitHub");
+    }
+    void resized() override
+    {
+        const float s = scaleOf (*this);
+        auto card = getLocalBounds().withSizeKeepingCentre (juce::roundToInt(540*s), juce::roundToInt(330*s));
+        githubLink.setBounds (card.getX() + juce::roundToInt(88*s), card.getY() + juce::roundToInt(240*s),
+                              card.getWidth() - juce::roundToInt(120*s), juce::roundToInt(30*s));
+    }
 
     void paint (juce::Graphics& g) override
     {
@@ -614,8 +705,17 @@ public:
         g.drawText ("Built with JUCE.  Title font: Redaction 50 (SIL Open Font License).",
                     r.removeFromTop (juce::roundToInt (20.0f * s)), juce::Justification::centred);
 
+        // GitHub mark (Octicon silhouette) next to a clickable project link.
+        juce::Path githubIcon;
+        if (auto svg = juce::XmlDocument::parse (R"SVG(<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.65 7.65 0 0 1 2-.27c.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>)SVG"))
+            if (auto drawable = juce::Drawable::createFromSVG (*svg))
+            {
+                auto iconRect = githubLink.getBounds().removeFromLeft (juce::roundToInt(24*s)).toFloat();
+                drawable->drawWithin (g, iconRect, juce::RectanglePlacement::centred, 1.0f);
+            }
+        g.setColour (juce::Colour (t.dim));
         g.setFont (juce::Font (11.5f * s, juce::Font::bold));
-        g.drawText ("CLICK ANYWHERE TO CLOSE", r.removeFromBottom (juce::roundToInt (18.0f * s)), juce::Justification::centred);
+        g.drawText ("CLICK OUTSIDE LINK TO CLOSE", r.removeFromBottom (juce::roundToInt (18.0f * s)), juce::Justification::centred);
     }
 
     void mouseDown (const juce::MouseEvent&) override
@@ -643,6 +743,7 @@ private:
     ui::CosphereLnF lnf;
     int currentTheme = -1;
     bool dirty = false;
+    bool readyToPersist = false;
 
     // Osciladores
     ui::Choice o1w, o2w;
@@ -656,13 +757,14 @@ private:
     // Envelopes
     ui::Knob aA, aD, aS, aR, fA, fD, fS, fR;
     // Modulacao
-    ui::Choice lsh, ldst;
+    ui::Choice lsh, ldst, lsy, ldiv;
     ui::Knob lrt, ldp, penv, pdec;
     // Efeitos
     ui::Knob drv, crsh, chr, dlm, dlt, dlf, rmx, rsz, mst;
     ui::Choice dsy, ddiv;
 
-    ui::Panel oscPanel, filterPanel, voicePanel, ampPanel, fltPanel, lfoPanel, fxPanel;
+    ui::Panel oscPanel, filterPanel, voicePanel, ampPanel, fltPanel, lfoPanel;
+    ui::EffectsPanel fxPanel;
     ui::GlobeView globe;
     ui::OptionsPanel options;
     ui::AboutPanel about;
